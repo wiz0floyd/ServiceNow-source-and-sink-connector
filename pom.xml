@@ -6,12 +6,12 @@
 
     <groupId>com.servicenow.kafka.connect</groupId>
     <artifactId>hermes-kafka-connector</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>jar</packaging>
 
     <name>ServiceNow Hermes Kafka Connector</name>
     <description>Kafka Connect sink and source connectors bridging Confluent Cloud with ServiceNow Hermes</description>
-    <url>https://github.com/servicenow/hermes-kafka-connector</url>
+    <url>https://github.com/wiz0floyd/ServiceNow-source-and-sink-connector</url>
 
     <licenses>
         <license>
@@ -27,6 +27,7 @@
         <kafka.version>3.7.0</kafka.version>
         <junit.version>5.10.2</junit.version>
         <mockito.version>5.11.0</mockito.version>
+        <kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
     </properties>
 
     <dependencies>
@@ -38,7 +39,7 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Kafka clients — needed for KafkaProducer, AdminClient, SslEngineFactory -->
+        <!-- Kafka clients — KafkaProducer, AdminClient, SslEngineFactory (KIP-519) -->
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
@@ -72,7 +73,6 @@
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- SLF4J simple backend for tests -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
@@ -89,23 +89,73 @@
                 <version>3.2.5</version>
             </plugin>
 
-            <!-- Assembly plugin: produces the Confluent Cloud Custom Connector zip -->
+            <!--
+                Confluent Kafka Connect Maven Plugin
+                Produces a compliant Confluent Hub / Confluent Cloud component archive:
+                  servicenow-hermes-kafka-connector-{version}.zip
+                Archive layout follows the component-archive spec:
+                  {owner}-{name}-{version}/
+                    manifest.json  (auto-generated from config below)
+                    lib/           (connector JAR + runtime deps)
+                    doc/           (LICENSE, README.md from src/main/docs/)
+                    etc/           (sample properties from src/main/etc/)
+            -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.7.1</version>
-                <configuration>
-                    <descriptors>
-                        <descriptor>src/assembly/connector-package.xml</descriptor>
-                    </descriptors>
-                </configuration>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-connect-maven-plugin</artifactId>
+                <version>${kafka.connect.maven.plugin.version}</version>
                 <executions>
                     <execution>
-                        <id>package-connector</id>
-                        <phase>package</phase>
                         <goals>
-                            <goal>single</goal>
+                            <goal>kafka-connect</goal>
                         </goals>
+                        <configuration>
+                            <title>ServiceNow Hermes Kafka Connector</title>
+                            <description>
+                                Kafka Connect sink connector that streams data from Confluent Cloud
+                                into a ServiceNow instance Hermes Kafka cluster using mutual TLS (mTLS)
+                                authentication. Enables real-time data ingestion into ServiceNow workflows
+                                without requiring VPN or PrivateLink. Supports pass-through bytes
+                                (ByteArrayConverter), full header preservation, and hash-by-key
+                                partitioning. Requires an mTLS certificate from the ServiceNow Instance
+                                PKI Certificate Generator.
+                            </description>
+                            <documentationUrl>https://github.com/wiz0floyd/ServiceNow-source-and-sink-connector</documentationUrl>
+                            <sourceUrl>https://github.com/wiz0floyd/ServiceNow-source-and-sink-connector</sourceUrl>
+
+                            <ownerUsername>servicenow</ownerUsername>
+                            <ownerType>organization</ownerType>
+                            <ownerName>ServiceNow</ownerName>
+                            <ownerUrl>https://www.servicenow.com</ownerUrl>
+
+                            <componentTypes>
+                                <componentType>sink</componentType>
+                            </componentTypes>
+
+                            <tags>
+                                <tag>servicenow</tag>
+                                <tag>hermes</tag>
+                                <tag>mtls</tag>
+                                <tag>enterprise</tag>
+                                <tag>itsm</tag>
+                            </tags>
+
+                            <requirements>
+                                <requirement>ServiceNow instance with Hermes Messaging Service activated</requirement>
+                                <requirement>mTLS certificate from Instance PKI Certificate Generator</requirement>
+                            </requirements>
+
+                            <confluentControlCenterIntegration>true</confluentControlCenterIntegration>
+                            <singleMessageTransforms>true</singleMessageTransforms>
+
+                            <deliveryGuarantee>
+                                <deliveryGuarantee>atLeastOnce</deliveryGuarantee>
+                            </deliveryGuarantee>
+
+                            <supportedEncodings>
+                                <supportedEncoding>any</supportedEncoding>
+                            </supportedEncodings>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

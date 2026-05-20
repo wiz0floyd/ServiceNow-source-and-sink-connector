@@ -1,0 +1,8 @@
+ServiceNow Hermes Kafka Connector
+Copyright 2026 ServiceNow, Inc.
+
+This product includes software developed at ServiceNow, Inc.
+(https://www.servicenow.com/).
+
+This product depends on Apache Kafka (https://kafka.apache.org/),
+licensed under the Apache License, Version 2.0.
