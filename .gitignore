@@ -1,0 +1,24 @@
+target/
+*.class
+*.jar
+!src/test/resources/fixtures/*.p12
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit real keystores or creds
+*.p12
+*.jks
+*.pem
+*.key
+*.crt
+secrets/

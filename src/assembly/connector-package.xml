@@ -1,0 +1,34 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 http://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <id>package</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <baseDirectory>${project.artifactId}-${project.version}</baseDirectory>
+
+    <fileSets>
+        <!-- Include lib/ directory with the connector jar -->
+        <fileSet>
+            <directory>${project.build.directory}</directory>
+            <includes>
+                <include>${project.artifactId}-${project.version}.jar</include>
+            </includes>
+            <outputDirectory>lib</outputDirectory>
+        </fileSet>
+    </fileSets>
+
+    <dependencySets>
+        <!-- Include all runtime deps (excludes provided-scope kafka connect api, slf4j-api) -->
+        <dependencySet>
+            <outputDirectory>lib</outputDirectory>
+            <useProjectArtifact>false</useProjectArtifact>
+            <scope>runtime</scope>
+            <excludes>
+                <exclude>org.apache.kafka:connect-api</exclude>
+                <exclude>org.slf4j:slf4j-api</exclude>
+            </excludes>
+        </dependencySet>
+    </dependencySets>
+</assembly>

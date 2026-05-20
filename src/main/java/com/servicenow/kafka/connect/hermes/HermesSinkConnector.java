@@ -1,0 +1,113 @@
+package com.servicenow.kafka.connect.hermes;
+
+import com.servicenow.kafka.connect.hermes.ssl.InMemorySslEngineFactory;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.sink.SinkConnector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+public class HermesSinkConnector extends SinkConnector {
+
+    private static final Logger log = LoggerFactory.getLogger(HermesSinkConnector.class);
+
+    static final String VERSION = "0.1.0-SNAPSHOT";
+
+    private Map<String, String> props;
+
+    @Override
+    public String version() {
+        return VERSION;
+    }
+
+    @Override
+    public void start(Map<String, String> props) {
+        log.info("Starting HermesSinkConnector");
+        HermesConnectorConfig config = new HermesConnectorConfig(props);
+        validateTopicExists(config);
+        this.props = Collections.unmodifiableMap(new HashMap<>(props));
+        log.info("HermesSinkConnector started — Hermes instance: {}, target topic: {}",
+            config.getInstanceName(), config.getHermesTopic());
+    }
+
+    @Override
+    public Class<? extends Task> taskClass() {
+        return HermesSinkTask.class;
+    }
+
+    @Override
+    public List<Map<String, String>> taskConfigs(int maxTasks) {
+        // All tasks get the same config — each opens its own producer
+        List<Map<String, String>> configs = new ArrayList<>(maxTasks);
+        for (int i = 0; i < maxTasks; i++) {
+            configs.add(props);
+        }
+        return configs;
+    }
+
+    @Override
+    public void stop() {
+        log.info("HermesSinkConnector stopped");
+    }
+
+    @Override
+    public ConfigDef config() {
+        return HermesConnectorConfig.CONFIG_DEF;
+    }
+
+    // ---- Topic validation ----
+
+    void validateTopicExists(HermesConnectorConfig config) {
+        String hermesTopic = config.getHermesTopic();
+        String bootstrap = HermesBootstrapBuilder.buildSinkBootstrap(config.getInstanceName());
+        log.info("Validating Hermes topic '{}' exists at {}", hermesTopic, bootstrap);
+
+        Map<String, Object> adminProps = buildAdminProperties(config, bootstrap);
+        try (AdminClient admin = createAdminClient(adminProps)) {
+            Set<String> topics = admin.listTopics().names().get(30, TimeUnit.SECONDS);
+            if (!topics.contains(hermesTopic)) {
+                throw new ConnectException(
+                    "Hermes topic '" + hermesTopic + "' does not exist. " +
+                    "Create the topic via the Hermes Messaging Service (All > Hermes Messaging Service > Topics) " +
+                    "before starting this connector. Available topics: " + topics.size() + " found.");
+            }
+            log.info("Confirmed Hermes topic '{}' exists", hermesTopic);
+        } catch (ConnectException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ConnectException(
+                "Failed to verify Hermes topic '" + hermesTopic + "' — could not connect to " +
+                bootstrap + ". Check instance name, network access, and SSL credentials. Cause: " +
+                e.getMessage(), e);
+        }
+    }
+
+    static Map<String, Object> buildAdminProperties(HermesConnectorConfig config, String bootstrap) {
+        Map<String, Object> props = new HashMap<>();
+        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
+        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "20000");
+        props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "25000");
+        addSslProperties(props, config);
+        return props;
+    }
+
+    static void addSslProperties(Map<String, Object> props, HermesConnectorConfig config) {
+        props.put("security.protocol", "SSL");
+        props.put("ssl.engine.factory.class", InMemorySslEngineFactory.class.getName());
+        props.put(InMemorySslEngineFactory.KEYSTORE_B64_CONFIG, config.getKeystoreB64());
+        props.put(InMemorySslEngineFactory.KEYSTORE_PASSWORD_CONFIG, config.getKeystorePassword());
+        props.put(InMemorySslEngineFactory.TRUSTSTORE_B64_CONFIG, config.getTruststoreB64());
+        props.put(InMemorySslEngineFactory.TRUSTSTORE_PASSWORD_CONFIG, config.getTruststorePassword());
+    }
+
+    // Package-private for testing — allows injection of mock AdminClient
+    AdminClient createAdminClient(Map<String, Object> adminProps) {
+        return AdminClient.create(adminProps);
+    }
+}
