@@ -112,7 +112,8 @@ public class HermesSinkTask extends SinkTask {
         props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
         props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120000);
 
-        // SSL — in-memory keystore via KIP-519
+        // SSL — in-memory keystore via KIP-519. Values pass through as Password
+        // objects so they remain masked if the KafkaProducer dumps its config.
         props.put("security.protocol", "SSL");
         props.put("ssl.engine.factory.class", InMemorySslEngineFactory.class.getName());
         props.put(InMemorySslEngineFactory.KEYSTORE_B64_CONFIG, config.getKeystoreB64());

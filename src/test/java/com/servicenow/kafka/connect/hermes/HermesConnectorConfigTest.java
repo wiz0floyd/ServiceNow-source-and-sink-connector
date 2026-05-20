@@ -84,6 +84,42 @@ class HermesConnectorConfigTest {
     }
 
     @Test
+    void sensitivePropertiesListMatchesAllPasswordFields() {
+        // SENSITIVE_PROPERTIES drives the --sensitive-properties value at upload time.
+        // Every Type.PASSWORD config defined above must appear in this list.
+        assertEquals(4, HermesConnectorConfig.SENSITIVE_PROPERTIES.size());
+        assertTrue(HermesConnectorConfig.SENSITIVE_PROPERTIES.contains(
+            HermesConnectorConfig.HERMES_SSL_KEYSTORE_B64_CONFIG));
+        assertTrue(HermesConnectorConfig.SENSITIVE_PROPERTIES.contains(
+            HermesConnectorConfig.HERMES_SSL_KEYSTORE_PASSWORD_CONFIG));
+        assertTrue(HermesConnectorConfig.SENSITIVE_PROPERTIES.contains(
+            HermesConnectorConfig.HERMES_SSL_TRUSTSTORE_B64_CONFIG));
+        assertTrue(HermesConnectorConfig.SENSITIVE_PROPERTIES.contains(
+            HermesConnectorConfig.HERMES_SSL_TRUSTSTORE_PASSWORD_CONFIG));
+    }
+
+    @Test
+    void sensitivePropertiesCsvIsCommaSeparated() {
+        String csv = HermesConnectorConfig.SENSITIVE_PROPERTIES_CSV;
+        assertEquals(3, csv.chars().filter(c -> c == ',').count(),
+            "CSV should contain exactly 3 commas for 4 properties");
+        assertFalse(csv.contains(" "), "CSV must not contain spaces (CLI flag is comma-only)");
+    }
+
+    @Test
+    void passwordGettersReturnPasswordType() {
+        HermesConnectorConfig config = new HermesConnectorConfig(validProps());
+        // Returns Password (not raw String) so values stay masked when passed through
+        // to producer/admin config maps that may be logged by Kafka clients.
+        assertEquals("[hidden]", config.getKeystoreB64().toString());
+        assertEquals("[hidden]", config.getKeystorePassword().toString());
+        assertEquals("[hidden]", config.getTruststoreB64().toString());
+        assertEquals("[hidden]", config.getTruststorePassword().toString());
+        // .value() still returns the raw plaintext when needed
+        assertEquals("dGVzdGtleXN0b3Jl", config.getKeystoreB64().value());
+    }
+
+    @Test
     void customAcksAndRetriesAreRespected() {
         Map<String, String> props = validProps();
         props.put(HermesConnectorConfig.HERMES_PRODUCER_ACKS_CONFIG, "1");

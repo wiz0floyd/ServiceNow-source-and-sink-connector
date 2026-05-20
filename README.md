@@ -51,6 +51,31 @@ base64 -i keystore.p12
 
 End-to-end **at-least-once**. The producer is configured with `enable.idempotence=true` and `acks=all`. Idempotency / dedup is the consumer's responsibility on the Hermes side.
 
+## Sensitive properties
+
+All four mTLS-related configs are declared `Type.PASSWORD` in the connector's `ConfigDef`, which causes Kafka Connect to mask them in REST and log output. When uploading to Confluent Cloud, also pass them via the platform-level sensitive list so they are encrypted at rest:
+
+```
+hermes.ssl.keystore.b64,hermes.ssl.keystore.password,hermes.ssl.truststore.b64,hermes.ssl.truststore.password
+```
+
+### CLI upload
+
+```bash
+confluent connect custom-plugin create hermes-sink-connector \
+  --plugin-file target/components/packages/servicenow-hermes-kafka-connector-0.1.0.zip \
+  --connector-type sink \
+  --connector-class com.servicenow.kafka.connect.hermes.HermesSinkConnector \
+  --sensitive-properties hermes.ssl.keystore.b64,hermes.ssl.keystore.password,hermes.ssl.truststore.b64,hermes.ssl.truststore.password \
+  --cloud aws
+```
+
+### Console upload
+
+In the Confluent Cloud Console **Add Plugin** flow, paste the four property names into the **Sensitive properties** field when prompted.
+
+The canonical list is exported from the code at `HermesConnectorConfig.SENSITIVE_PROPERTIES_CSV` — if more sensitive configs are added later, update that constant and they'll appear here automatically.
+
 ## License
 
 Apache License 2.0. See `LICENSE`.

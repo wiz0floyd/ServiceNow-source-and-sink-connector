@@ -98,6 +98,8 @@ public class HermesSinkConnector extends SinkConnector {
     }
 
     static void addSslProperties(Map<String, Object> props, HermesConnectorConfig config) {
+        // Values pass through as Password objects so Kafka client-side config logging
+        // never prints them in plaintext.
         props.put("security.protocol", "SSL");
         props.put("ssl.engine.factory.class", InMemorySslEngineFactory.class.getName());
         props.put(InMemorySslEngineFactory.KEYSTORE_B64_CONFIG, config.getKeystoreB64());

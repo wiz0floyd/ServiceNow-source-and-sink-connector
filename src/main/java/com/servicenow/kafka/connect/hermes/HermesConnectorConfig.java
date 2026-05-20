@@ -4,7 +4,11 @@ import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
+import org.apache.kafka.common.config.types.Password;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 public class HermesConnectorConfig extends AbstractConfig {
@@ -99,20 +103,40 @@ public class HermesConnectorConfig extends AbstractConfig {
         return getString(HERMES_TOPIC_CONFIG);
     }
 
-    public String getKeystoreB64() {
-        return getPassword(HERMES_SSL_KEYSTORE_B64_CONFIG).value();
+    /**
+     * Names of every config property treated as a secret. Use this list when
+     * uploading the connector to Confluent Cloud:
+     *   confluent connect custom-plugin create ... \
+     *     --sensitive-properties {@link #SENSITIVE_PROPERTIES_CSV}
+     * The {@link Type#PASSWORD} declaration above ensures Kafka Connect masks
+     * these in REST and log output; the platform-level sensitive_properties
+     * list ensures Confluent Cloud encrypts them at rest.
+     */
+    public static final List<String> SENSITIVE_PROPERTIES = Collections.unmodifiableList(Arrays.asList(
+        HERMES_SSL_KEYSTORE_B64_CONFIG,
+        HERMES_SSL_KEYSTORE_PASSWORD_CONFIG,
+        HERMES_SSL_TRUSTSTORE_B64_CONFIG,
+        HERMES_SSL_TRUSTSTORE_PASSWORD_CONFIG
+    ));
+
+    public static final String SENSITIVE_PROPERTIES_CSV = String.join(",", SENSITIVE_PROPERTIES);
+
+    // Password-typed getters preserve masking when values are passed into the
+    // Kafka producer / admin client config map (Password.toString() returns "[hidden]").
+    public Password getKeystoreB64() {
+        return getPassword(HERMES_SSL_KEYSTORE_B64_CONFIG);
     }
 
-    public String getKeystorePassword() {
-        return getPassword(HERMES_SSL_KEYSTORE_PASSWORD_CONFIG).value();
+    public Password getKeystorePassword() {
+        return getPassword(HERMES_SSL_KEYSTORE_PASSWORD_CONFIG);
     }
 
-    public String getTruststoreB64() {
-        return getPassword(HERMES_SSL_TRUSTSTORE_B64_CONFIG).value();
+    public Password getTruststoreB64() {
+        return getPassword(HERMES_SSL_TRUSTSTORE_B64_CONFIG);
     }
 
-    public String getTruststorePassword() {
-        return getPassword(HERMES_SSL_TRUSTSTORE_PASSWORD_CONFIG).value();
+    public Password getTruststorePassword() {
+        return getPassword(HERMES_SSL_TRUSTSTORE_PASSWORD_CONFIG);
     }
 
     public String getProducerAcks() {
