@@ -45,8 +45,12 @@ public class HermesSourceTask extends SourceTask {
         hermesTopic = config.getSourceTopic();
         confluentTopic = config.getConfluentTopic();
 
-        String bootstrap1 = HermesBootstrapBuilder.buildSourceCluster1Bootstrap(config.getInstanceName());
-        String bootstrap2 = HermesBootstrapBuilder.buildSourceCluster2Bootstrap(config.getInstanceName());
+        String bootstrap1 = config.getCluster1BootstrapOverride().isEmpty()
+            ? HermesBootstrapBuilder.buildSourceCluster1Bootstrap(config.getInstanceName())
+            : config.getCluster1BootstrapOverride();
+        String bootstrap2 = config.getCluster2BootstrapOverride().isEmpty()
+            ? HermesBootstrapBuilder.buildSourceCluster2Bootstrap(config.getInstanceName())
+            : config.getCluster2BootstrapOverride();
 
         log.info("HermesSourceTask starting — hermesTopic: {}, confluentTopic: {}, cluster1: {}, cluster2: {}",
             hermesTopic, confluentTopic, bootstrap1, bootstrap2);
@@ -158,14 +162,17 @@ public class HermesSourceTask extends SourceTask {
         // Connect manages offsets via its own offset store; the consumer must not auto-commit.
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
-        // SSL — in-memory keystore via KIP-519. Password objects keep secrets masked
-        // if the KafkaConsumer dumps its config.
-        props.put("security.protocol", "SSL");
-        props.put("ssl.engine.factory.class", InMemorySslEngineFactory.class.getName());
-        props.put(InMemorySslEngineFactory.KEYSTORE_B64_CONFIG, config.getKeystoreB64());
-        props.put(InMemorySslEngineFactory.KEYSTORE_PASSWORD_CONFIG, config.getKeystorePassword());
-        props.put(InMemorySslEngineFactory.TRUSTSTORE_B64_CONFIG, config.getTruststoreB64());
-        props.put(InMemorySslEngineFactory.TRUSTSTORE_PASSWORD_CONFIG, config.getTruststorePassword());
+        if (config.isSslEnabled()) {
+            // SSL — in-memory keystore via KIP-519. Password objects keep secrets masked
+            // if the KafkaConsumer dumps its config.
+            props.put("security.protocol", "SSL");
+            props.put("ssl.engine.factory.class", InMemorySslEngineFactory.class.getName());
+            props.put(InMemorySslEngineFactory.KEYSTORE_B64_CONFIG, config.getKeystoreB64());
+            props.put(InMemorySslEngineFactory.KEYSTORE_PASSWORD_CONFIG, config.getKeystorePassword());
+            props.put(InMemorySslEngineFactory.TRUSTSTORE_B64_CONFIG, config.getTruststoreB64());
+            props.put(InMemorySslEngineFactory.TRUSTSTORE_PASSWORD_CONFIG, config.getTruststorePassword());
+        }
+        // else: PLAINTEXT — for local/Docker E2E testing only
 
         return props;
     }

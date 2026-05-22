@@ -70,8 +70,12 @@ public class HermesSourceConnector extends SourceConnector {
 
     void validateClustersReachable(HermesSourceConfig config) {
         String sourceTopic = config.getSourceTopic();
-        String bootstrap1 = HermesBootstrapBuilder.buildSourceCluster1Bootstrap(config.getInstanceName());
-        String bootstrap2 = HermesBootstrapBuilder.buildSourceCluster2Bootstrap(config.getInstanceName());
+        String bootstrap1 = config.getCluster1BootstrapOverride().isEmpty()
+            ? HermesBootstrapBuilder.buildSourceCluster1Bootstrap(config.getInstanceName())
+            : config.getCluster1BootstrapOverride();
+        String bootstrap2 = config.getCluster2BootstrapOverride().isEmpty()
+            ? HermesBootstrapBuilder.buildSourceCluster2Bootstrap(config.getInstanceName())
+            : config.getCluster2BootstrapOverride();
 
         validateTopicOnCluster(config, bootstrap1, sourceTopic, "1");
         validateTopicOnCluster(config, bootstrap2, sourceTopic, "2");
@@ -110,6 +114,9 @@ public class HermesSourceConnector extends SourceConnector {
     }
 
     static void addSslProperties(Map<String, Object> props, HermesSourceConfig config) {
+        if (!config.isSslEnabled()) {
+            return;
+        }
         // Values pass through as Password objects so Kafka client-side config logging
         // never prints them in plaintext.
         props.put("security.protocol", "SSL");

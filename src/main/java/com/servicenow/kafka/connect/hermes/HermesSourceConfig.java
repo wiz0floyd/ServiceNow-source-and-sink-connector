@@ -24,6 +24,9 @@ public class HermesSourceConfig extends AbstractConfig {
     public static final String HERMES_SSL_TRUSTSTORE_B64_CONFIG = "hermes.ssl.truststore.b64";
     public static final String HERMES_SSL_TRUSTSTORE_PASSWORD_CONFIG = "hermes.ssl.truststore.password";
     public static final String HERMES_CONSUMER_MAX_POLL_RECORDS_CONFIG = "hermes.consumer.max.poll.records";
+    public static final String HERMES_SOURCE_CLUSTER1_BOOTSTRAP_OVERRIDE_CONFIG = "hermes.source.cluster1.bootstrap.override";
+    public static final String HERMES_SOURCE_CLUSTER2_BOOTSTRAP_OVERRIDE_CONFIG = "hermes.source.cluster2.bootstrap.override";
+    public static final String HERMES_SSL_ENABLED_CONFIG = "hermes.ssl.enabled";
 
     // ---- ConfigDef ----
 
@@ -101,6 +104,32 @@ public class HermesSourceConfig extends AbstractConfig {
             ConfigDef.Range.atLeast(1),
             Importance.LOW,
             "Maximum number of records returned in a single call to poll() by each embedded Hermes consumer."
+        )
+        .define(
+            HERMES_SOURCE_CLUSTER1_BOOTSTRAP_OVERRIDE_CONFIG,
+            Type.STRING,
+            "",
+            Importance.LOW,
+            "Optional bootstrap servers override for Hermes source cluster 1. " +
+            "When set, replaces the derived '<instance>.service-now.com:4100-4103' address. " +
+            "For local development / Docker E2E testing only."
+        )
+        .define(
+            HERMES_SOURCE_CLUSTER2_BOOTSTRAP_OVERRIDE_CONFIG,
+            Type.STRING,
+            "",
+            Importance.LOW,
+            "Optional bootstrap servers override for Hermes source cluster 2. " +
+            "When set, replaces the derived '<instance>.service-now.com:4200-4203' address. " +
+            "For local development / Docker E2E testing only."
+        )
+        .define(
+            HERMES_SSL_ENABLED_CONFIG,
+            Type.BOOLEAN,
+            true,
+            Importance.LOW,
+            "Set to false to disable mTLS and use plaintext. " +
+            "For local development / Docker E2E testing ONLY — never disable SSL in production."
         );
 
     public HermesSourceConfig(Map<String, String> props) {
@@ -159,5 +188,17 @@ public class HermesSourceConfig extends AbstractConfig {
 
     public int getMaxPollRecords() {
         return getInt(HERMES_CONSUMER_MAX_POLL_RECORDS_CONFIG);
+    }
+
+    public String getCluster1BootstrapOverride() {
+        return getString(HERMES_SOURCE_CLUSTER1_BOOTSTRAP_OVERRIDE_CONFIG);
+    }
+
+    public String getCluster2BootstrapOverride() {
+        return getString(HERMES_SOURCE_CLUSTER2_BOOTSTRAP_OVERRIDE_CONFIG);
+    }
+
+    public boolean isSslEnabled() {
+        return getBoolean(HERMES_SSL_ENABLED_CONFIG);
     }
 }
