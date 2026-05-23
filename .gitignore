@@ -1,6 +1,7 @@
 target/
 *.class
 *.jar
+!plugins/**/*.jar
 !src/test/resources/fixtures/*.p12
 
 # IDE
