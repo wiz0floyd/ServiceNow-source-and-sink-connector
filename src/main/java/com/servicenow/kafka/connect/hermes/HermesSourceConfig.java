@@ -57,7 +57,9 @@ public class HermesSourceConfig extends AbstractConfig {
             new ConfigDef.NonEmptyString(),
             Importance.HIGH,
             "Kafka consumer group.id used by the embedded consumers connecting to Hermes. " +
-            "The same group id is used against both peer clusters."
+            "The same group id is used against both peer clusters. " +
+            "Hermes ACLs require the group id to be prefixed 'snc.<instanceName>.' — " +
+            "the connector applies this prefix automatically if it is not already present."
         )
         .define(
             CONFLUENT_TOPIC_CONFIG,

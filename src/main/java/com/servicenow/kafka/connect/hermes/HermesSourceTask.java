@@ -141,6 +141,18 @@ public class HermesSourceTask extends SourceTask {
         return sr;
     }
 
+    // Hermes ACLs require group IDs prefixed with "snc.<instance>." — auto-apply if missing.
+    static String resolveGroupId(HermesSourceConfig config) {
+        String groupId = config.getGroupId();
+        String prefix = "snc." + config.getInstanceName() + ".";
+        if (groupId.startsWith(prefix)) {
+            return groupId;
+        }
+        String resolved = prefix + groupId;
+        log.info("Auto-prefixing consumer group.id with Hermes ACL prefix: {} → {}", groupId, resolved);
+        return resolved;
+    }
+
     static Map<String, Object> sourcePartitionKey(String clusterId, String topic, int partition) {
         Map<String, Object> m = new HashMap<>();
         m.put("cluster", clusterId);
@@ -156,7 +168,7 @@ public class HermesSourceTask extends SourceTask {
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getGroupId());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, resolveGroupId(config));
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, config.getMaxPollRecords());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         // Connect manages offsets via its own offset store; the consumer must not auto-commit.

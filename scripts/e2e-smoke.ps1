@@ -84,7 +84,7 @@ Write-Host "Plugin staged at: $pluginsDir"
 
 # ── Step 3: Start stack ────────────────────────────────────────────────────────
 Write-Host "`n==> Starting Docker stack..."
-docker compose -f "$ROOT\docker-compose.yml" up -d
+docker compose -p hermes-kafka-connector -f "$ROOT\docker-compose.yml" up -d
 
 # ── Step 4: Wait for brokers ───────────────────────────────────────────────────
 Wait-ForBroker "localhost:9092"    "broker (CC destination)"
@@ -151,5 +151,5 @@ if ($ok) {
 
 # ── Tear down ─────────────────────────────────────────────────────────────────
 Write-Host "`n==> Tearing down..."
-docker compose -f "$ROOT\docker-compose.yml" down -v
+docker compose -p hermes-kafka-connector -f "$ROOT\docker-compose.yml" down -v
 Write-Host "Done."

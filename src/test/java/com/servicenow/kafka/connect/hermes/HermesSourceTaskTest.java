@@ -209,6 +209,27 @@ class HermesSourceTaskTest {
         assertEquals("earliest", props.get("auto.offset.reset"));
     }
 
+    @Test
+    void resolveGroupIdAddsPrefixWhenMissing() {
+        HermesSourceConfig config = new HermesSourceConfig(minimalConfigProps());
+        assertEquals("snc.myinstance.test-group", HermesSourceTask.resolveGroupId(config));
+    }
+
+    @Test
+    void resolveGroupIdDoesNotDoublePrefixWhenAlreadyPresent() {
+        Map<String, String> props = minimalConfigProps();
+        props.put(HermesSourceConfig.HERMES_CONSUMER_GROUP_ID_CONFIG, "snc.myinstance.test-group");
+        HermesSourceConfig config = new HermesSourceConfig(props);
+        assertEquals("snc.myinstance.test-group", HermesSourceTask.resolveGroupId(config));
+    }
+
+    @Test
+    void buildConsumerPropertiesGroupIdHasHermesPrefix() {
+        HermesSourceConfig config = new HermesSourceConfig(minimalConfigProps());
+        Map<String, Object> props = HermesSourceTask.buildConsumerProperties(config, "bootstrap:9092");
+        assertEquals("snc.myinstance.test-group", props.get("group.id"));
+    }
+
     // ---- Helpers ----
 
     private ConsumerRecords<byte[], byte[]> makeRecords(String topic, int partition, long offset, byte[] key, byte[] value) {
