@@ -52,13 +52,11 @@ class HermesSourceTaskTest {
     }
 
     @Test
-    void pollReturnsEmptyListWhenBothConsumersReturnNoRecords() {
+    void pollReturnsNullWhenBothConsumersReturnNoRecords() {
         when(mockConsumer1.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
         when(mockConsumer2.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
 
-        List<SourceRecord> results = task.poll();
-        assertNotNull(results);
-        assertTrue(results.isEmpty());
+        assertNull(task.poll());
     }
 
     @Test

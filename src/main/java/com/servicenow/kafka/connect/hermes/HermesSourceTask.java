@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -69,7 +70,7 @@ public class HermesSourceTask extends SourceTask {
         List<SourceRecord> results = new ArrayList<>();
         drainConsumer(consumer1, CLUSTER_1, results);
         drainConsumer(consumer2, CLUSTER_2, results);
-        return results;
+        return results.isEmpty() ? null : results;
     }
 
     @Override
@@ -154,7 +155,7 @@ public class HermesSourceTask extends SourceTask {
     }
 
     static Map<String, Object> sourcePartitionKey(String clusterId, String topic, int partition) {
-        Map<String, Object> m = new HashMap<>();
+        Map<String, Object> m = new LinkedHashMap<>();
         m.put("cluster", clusterId);
         m.put("topic", topic);
         m.put("partition", partition);

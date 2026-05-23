@@ -96,6 +96,10 @@ public class HermesSourceConnector extends SourceConnector {
             log.info("Confirmed Hermes topic '{}' exists on source cluster {}", topic, clusterLabel);
         } catch (ConnectException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ConnectException(
+                "Interrupted while verifying Hermes topic '" + topic + "' on source cluster " + clusterLabel, e);
         } catch (Exception e) {
             throw new ConnectException(
                 "Failed to verify Hermes topic '" + topic + "' on source cluster " + clusterLabel +

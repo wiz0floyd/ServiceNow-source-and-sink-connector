@@ -70,31 +70,46 @@ class HermesSourceConfigTest {
     }
 
     @Test
-    void missingKeystoreThrows() {
+    void missingKeystoreThrowsWhenSslEnabled() {
         Map<String, String> props = validProps();
         props.remove(HermesSourceConfig.HERMES_SSL_KEYSTORE_B64_CONFIG);
-        assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+        ConfigException ex = assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+        assertTrue(ex.getMessage().contains(HermesSourceConfig.HERMES_SSL_KEYSTORE_B64_CONFIG));
     }
 
     @Test
-    void missingKeystorePasswordThrows() {
+    void missingKeystorePasswordThrowsWhenSslEnabled() {
         Map<String, String> props = validProps();
         props.remove(HermesSourceConfig.HERMES_SSL_KEYSTORE_PASSWORD_CONFIG);
-        assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+        ConfigException ex = assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+        assertTrue(ex.getMessage().contains(HermesSourceConfig.HERMES_SSL_KEYSTORE_PASSWORD_CONFIG));
     }
 
     @Test
-    void missingTruststoreThrows() {
+    void missingTruststoreThrowsWhenSslEnabled() {
         Map<String, String> props = validProps();
         props.remove(HermesSourceConfig.HERMES_SSL_TRUSTSTORE_B64_CONFIG);
-        assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+        ConfigException ex = assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+        assertTrue(ex.getMessage().contains(HermesSourceConfig.HERMES_SSL_TRUSTSTORE_B64_CONFIG));
     }
 
     @Test
-    void missingTruststorePasswordThrows() {
+    void missingTruststorePasswordThrowsWhenSslEnabled() {
         Map<String, String> props = validProps();
         props.remove(HermesSourceConfig.HERMES_SSL_TRUSTSTORE_PASSWORD_CONFIG);
-        assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+        ConfigException ex = assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+        assertTrue(ex.getMessage().contains(HermesSourceConfig.HERMES_SSL_TRUSTSTORE_PASSWORD_CONFIG));
+    }
+
+    @Test
+    void sslFieldsNotRequiredWhenSslDisabled() {
+        Map<String, String> props = new HashMap<>();
+        props.put(HermesSourceConfig.HERMES_INSTANCE_NAME_CONFIG, "myinstance");
+        props.put(HermesSourceConfig.HERMES_SOURCE_TOPIC_CONFIG, "snc.myinstance.sn_streamconnect.test-topic");
+        props.put(HermesSourceConfig.HERMES_CONSUMER_GROUP_ID_CONFIG, "hermes-source-connector-grp");
+        props.put(HermesSourceConfig.CONFLUENT_TOPIC_CONFIG, "cc.dest-topic");
+        props.put(HermesSourceConfig.HERMES_SSL_ENABLED_CONFIG, "false");
+        assertDoesNotThrow(() -> new HermesSourceConfig(props));
     }
 
     @Test
