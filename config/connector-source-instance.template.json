@@ -1,0 +1,24 @@
+{
+  "name": "hermes-source-test",
+  "connector.class": "com.servicenow.kafka.connect.hermes.HermesSourceConnector",
+  "confluent.custom.plugin.id": "REPLACE_WITH_CUSTOM_PLUGIN_ID",
+  "confluent.connector.type": "CUSTOM",
+  "tasks.max": "1",
+
+  "key.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+  "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+
+  "kafka.auth.mode": "KAFKA_API_KEY",
+  "kafka.api.key": "REPLACE_WITH_CCLOUD_API_KEY",
+  "kafka.api.secret": "REPLACE_WITH_CCLOUD_API_SECRET",
+
+  "hermes.instance.name": "REPLACE_WITH_BARE_INSTANCE_NAME",
+  "hermes.source.topic": "snc.REPLACE.sn_streamconnect.REPLACE",
+  "hermes.consumer.group.id": "hermes-connect-source",
+  "confluent.topic": "REPLACE_WITH_CONFLUENT_CLOUD_DESTINATION_TOPIC",
+
+  "hermes.ssl.keystore.b64": "REPLACE_WITH_BASE64_PKCS12_KEYSTORE",
+  "hermes.ssl.keystore.password": "REPLACE_WITH_KEYSTORE_PASSWORD",
+  "hermes.ssl.truststore.b64": "REPLACE_WITH_BASE64_PKCS12_TRUSTSTORE",
+  "hermes.ssl.truststore.password": "REPLACE_WITH_TRUSTSTORE_PASSWORD"
+}

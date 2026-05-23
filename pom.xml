@@ -112,13 +112,16 @@
                         <configuration>
                             <title>ServiceNow Hermes Kafka Connector</title>
                             <description>
-                                Kafka Connect sink connector that streams data from Confluent Cloud
-                                into a ServiceNow instance Hermes Kafka cluster using mutual TLS (mTLS)
-                                authentication. Enables real-time data ingestion into ServiceNow workflows
-                                without requiring VPN or PrivateLink. Supports pass-through bytes
-                                (ByteArrayConverter), full header preservation, and hash-by-key
-                                partitioning. Requires an mTLS certificate from the ServiceNow Instance
-                                PKI Certificate Generator.
+                                Kafka Connect sink and source connectors that bridge a ServiceNow
+                                instance Hermes Kafka cluster with Confluent Cloud using mutual TLS
+                                (mTLS) authentication. The sink streams records from Confluent Cloud
+                                into Hermes; the source streams records from Hermes (including its
+                                paired peer clusters) into Confluent Cloud. Enables real-time,
+                                bidirectional data movement between ServiceNow workflows and Confluent
+                                Cloud without requiring VPN or PrivateLink. Supports pass-through
+                                bytes (ByteArrayConverter), full header preservation, and hash-by-key
+                                partitioning on the sink. Requires an mTLS certificate from the
+                                ServiceNow Instance PKI Certificate Generator.
                             </description>
                             <documentationUrl>https://github.com/wiz0floyd/ServiceNow-source-and-sink-connector</documentationUrl>
                             <sourceUrl>https://github.com/wiz0floyd/ServiceNow-source-and-sink-connector</sourceUrl>
@@ -130,6 +133,7 @@
 
                             <componentTypes>
                                 <componentType>sink</componentType>
+                                <componentType>source</componentType>
                             </componentTypes>
 
                             <tags>

@@ -1,6 +1,13 @@
 ---
 version: '3.8'
 
+# Local E2E test topology:
+#   zookeeper        — shared ZooKeeper for all brokers
+#   broker           — "Confluent Cloud" destination (broker ID 1, port 9092)
+#   hermes-1         — Hermes source cluster 1 simulator (broker ID 2, port 14100)
+#   hermes-2         — Hermes source cluster 2 simulator (broker ID 3, port 14200)
+#   connect          — Kafka Connect worker (reads from hermes-1/2, writes to broker)
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
@@ -27,12 +34,48 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
 
+  hermes-1:
+    image: confluentinc/cp-kafka:7.6.1
+    hostname: hermes-1
+    container_name: hermes-1
+    depends_on:
+      - zookeeper
+    ports:
+      - "14100:9092"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://hermes-1:9092,PLAINTEXT_HOST://localhost:14100
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+
+  hermes-2:
+    image: confluentinc/cp-kafka:7.6.1
+    hostname: hermes-2
+    container_name: hermes-2
+    depends_on:
+      - zookeeper
+    ports:
+      - "14200:9092"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://hermes-2:9092,PLAINTEXT_HOST://localhost:14200
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+
   connect:
     image: confluentinc/cp-kafka-connect:7.6.1
     hostname: connect
     container_name: connect
     depends_on:
       - broker
+      - hermes-1
+      - hermes-2
     ports:
       - "8083:8083"
     volumes:
