@@ -1,0 +1,17 @@
+{
+  "release-type": "maven",
+  "packages": {
+    ".": {
+      "release-type": "maven",
+      "changelog-sections": [
+        {"type": "feat", "section": "Features"},
+        {"type": "fix", "section": "Bug Fixes"},
+        {"type": "perf", "section": "Performance Improvements"},
+        {"type": "revert", "section": "Reverts"},
+        {"type": "docs", "section": "Documentation", "hidden": false},
+        {"type": "chore", "section": "Miscellaneous", "hidden": false},
+        {"type": "security", "section": "Security", "hidden": false}
+      ]
+    }
+  }
+}
