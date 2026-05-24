@@ -2,7 +2,7 @@
   "name" : "hermes-kafka-connector",
   "version" : "0.1.0",
   "title" : "ServiceNow Hermes Kafka Connector",
-  "description" : "Kafka Connect sink connector that streams data from Confluent Cloud\ninto a ServiceNow instance Hermes Kafka cluster using mutual TLS (mTLS)\nauthentication. Enables real-time data ingestion into ServiceNow workflows\nwithout requiring VPN or PrivateLink. Supports pass-through bytes\n(ByteArrayConverter), full header preservation, and hash-by-key\npartitioning. Requires an mTLS certificate from the ServiceNow Instance\nPKI Certificate Generator.",
+  "description" : "Kafka Connect sink and source connectors that bridge a ServiceNow\ninstance Hermes Kafka cluster with Confluent Cloud using mutual TLS\n(mTLS) authentication. The sink streams records from Confluent Cloud\ninto Hermes; the source streams records from Hermes (including its\npaired peer clusters) into Confluent Cloud. Enables real-time,\nbidirectional data movement between ServiceNow workflows and Confluent\nCloud without requiring VPN or PrivateLink. Supports pass-through\nbytes (ByteArrayConverter), full header preservation, and hash-by-key\npartitioning on the sink. Requires an mTLS certificate from the\nServiceNow Instance PKI Certificate Generator.",
   "owner" : {
     "username" : "servicenow",
     "type" : "organization",
@@ -25,6 +25,6 @@
     "name" : "Apache License, Version 2.0",
     "url" : "https://www.apache.org/licenses/LICENSE-2.0"
   } ],
-  "component_types" : [ "sink" ],
-  "release_date" : "2026-05-20"
+  "component_types" : [ "sink", "source" ],
+  "release_date" : "2026-05-24"
 }

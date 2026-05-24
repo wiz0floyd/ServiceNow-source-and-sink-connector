@@ -1,0 +1,24 @@
+{
+  "name": "hermes-sink-test",
+  "connector.class": "com.servicenow.kafka.connect.hermes.HermesSinkConnector",
+  "confluent.custom.plugin.id": "ccp-y31jpo",
+  "confluent.connector.type": "CUSTOM",
+  "tasks.max": "1",
+
+  "topics": "REPLACE_WITH_YOUR_CONFLUENT_CLOUD_TOPIC",
+
+  "key.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+  "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+
+  "kafka.auth.mode": "KAFKA_API_KEY",
+  "kafka.api.key": "REPLACE_WITH_CCLOUD_API_KEY",
+  "kafka.api.secret": "REPLACE_WITH_CCLOUD_API_SECRET",
+
+  "hermes.instance.name": "REPLACE_WITH_BARE_INSTANCE_NAME",
+  "hermes.topic": "snc.REPLACE.sn_streamconnect.REPLACE",
+
+  "hermes.ssl.keystore.b64": "REPLACE_WITH_BASE64_PKCS12_KEYSTORE",
+  "hermes.ssl.keystore.password": "REPLACE_WITH_KEYSTORE_PASSWORD",
+  "hermes.ssl.truststore.b64": "REPLACE_WITH_BASE64_PKCS12_TRUSTSTORE",
+  "hermes.ssl.truststore.password": "REPLACE_WITH_TRUSTSTORE_PASSWORD"
+}
