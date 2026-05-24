@@ -2,7 +2,7 @@
 
 ## Status
 
-**DEPLOYED AND RUNNING** — connector `clcc-w7oj20j` (`sn-hermes-371c696c`) is RUNNING on `lkc-pgnjyq5` (2026-05-24).
+**END-TO-END VERIFIED** — connector `clcc-w7oj20j` (`sn-hermes-371c696c`) is RUNNING on `lkc-pgnjyq5` (2026-05-24). Test message produced to `sink_test` on Confluent Cloud, found at `snc.hermes1.sn_streamconnect.SSLtest` partition=0 offset=7 on Hermes (~20s latency).
 
 **Root cause of PROVISIONING hang: missing ServiceLoader descriptors** (now fixed). See fixed files below.
 
@@ -87,5 +87,10 @@ Affected if we switch: `HermesBootstrapBuilder`, `HermesConnectorConfig.Instance
 - **`--plugin-id` skips upload**: the flag means "reuse this artifact" not "update this plugin" — deploy without it to force a fresh upload
 - **Lemon clusters**: if a Dedicated cluster throws immediate control plane errors before PROVISIONING, delete and create fresh — same config may work on new hardware
 - **`confluent connect cluster update` is destructive**: replaces full config, not merges — always use `--config-file` with the complete config or redeploy via `sn-confluent deploy`
-- **Egress endpoint format**: `hostname:port1,port2,port3` (single host, comma-separated ports — not repeated host:port pairs)
+- **Egress endpoint format**: `hostname:port1,port2,port3` (single host, comma-separated ports — not repeated host:port pairs; full `host:port` repeated pairs are rejected by the API)
+- **51 egress ports → 40+ min PROVISIONING**: each port adds setup overhead in Confluent Cloud's network plumbing; 8 ports provisions in ~6 min
 - **Bootstrap vs egress**: connector bootstrap strings only need to cover the 4–8 brokers that actually exist; the egress allowlist must cover the full theoretical port range because broker metadata can return any address in that range
+- **Hermes consumer group ACL**: group IDs must be prefixed `snc.<instance>.` or Hermes returns `GroupAuthorizationException`
+- **kafka-python + Confluent Cloud**: requires `ssl_context=ssl.create_default_context()` — without it, the producer silently times out on metadata fetch
+- **sink_test topic must be pre-created**: Confluent Cloud does not auto-create topics; connector runs RUNNING even without the topic existing, but no messages are forwarded
+- **E2E latency ~20s**: message produced to Confluent Cloud → forwarded by sink connector → available on Hermes in approximately 20 seconds under test conditions
