@@ -2,11 +2,17 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -17,5 +23,25 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build and verify
+      - name: Build, test, and coverage
         run: mvn --batch-mode verify
+
+      - name: Publish JUnit test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: JUnit Tests
+          path: target/surefire-reports/*.xml
+          reporter: java-junit
+          fail-on-error: true
+
+      - name: Post JaCoCo coverage comment
+        if: github.event_name == 'pull_request'
+        uses: Madrapps/jacoco-report@v1.6.1
+        with:
+          paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: 'Code Coverage'
+          update-comment: true
+          min-coverage-overall: 0
+          min-coverage-changed-files: 0
