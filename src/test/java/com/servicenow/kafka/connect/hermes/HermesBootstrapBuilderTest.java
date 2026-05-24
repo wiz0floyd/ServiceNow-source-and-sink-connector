@@ -2,22 +2,27 @@ package com.servicenow.kafka.connect.hermes;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class HermesBootstrapBuilderTest {
 
-    private static String brokers(String instance, int start, int end) {
-        return IntStream.rangeClosed(start, end)
-            .mapToObj(p -> instance + ".service-now.com:" + p)
-            .collect(Collectors.joining(","));
-    }
+    private static final String EXPECTED_SINK =
+        "myinstance.service-now.com:4000,myinstance.service-now.com:4001," +
+        "myinstance.service-now.com:4002,myinstance.service-now.com:4003," +
+        "myinstance.service-now.com:4004,myinstance.service-now.com:4005," +
+        "myinstance.service-now.com:4006,myinstance.service-now.com:4007";
 
-    private static final String EXPECTED_SINK     = brokers("myinstance", 4000, 4050);
-    private static final String EXPECTED_CLUSTER1 = brokers("myinstance", 4100, 4150);
-    private static final String EXPECTED_CLUSTER2 = brokers("myinstance", 4200, 4250);
+    private static final String EXPECTED_CLUSTER1 =
+        "myinstance.service-now.com:4100,myinstance.service-now.com:4101," +
+        "myinstance.service-now.com:4102,myinstance.service-now.com:4103," +
+        "myinstance.service-now.com:4104,myinstance.service-now.com:4105," +
+        "myinstance.service-now.com:4106,myinstance.service-now.com:4107";
+
+    private static final String EXPECTED_CLUSTER2 =
+        "myinstance.service-now.com:4200,myinstance.service-now.com:4201," +
+        "myinstance.service-now.com:4202,myinstance.service-now.com:4203," +
+        "myinstance.service-now.com:4204,myinstance.service-now.com:4205," +
+        "myinstance.service-now.com:4206,myinstance.service-now.com:4207";
 
     @Test
     void bareInstanceNameProducesCorrectSinkBootstrap() {

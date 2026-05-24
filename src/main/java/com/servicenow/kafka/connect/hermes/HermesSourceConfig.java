@@ -118,7 +118,7 @@ public class HermesSourceConfig extends AbstractConfig {
             "",
             Importance.LOW,
             "Optional bootstrap servers override for Hermes source cluster 1. " +
-            "When set, replaces the derived '<instance>.service-now.com:4100-4103' address. " +
+            "When set, replaces the derived '<instance>.service-now.com:4100-4107' bootstrap address. " +
             "For local development / Docker E2E testing only."
         )
         .define(
@@ -127,7 +127,7 @@ public class HermesSourceConfig extends AbstractConfig {
             "",
             Importance.LOW,
             "Optional bootstrap servers override for Hermes source cluster 2. " +
-            "When set, replaces the derived '<instance>.service-now.com:4200-4203' address. " +
+            "When set, replaces the derived '<instance>.service-now.com:4200-4207' bootstrap address. " +
             "For local development / Docker E2E testing only."
         )
         .define(
