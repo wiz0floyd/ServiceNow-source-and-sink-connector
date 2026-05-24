@@ -17,7 +17,7 @@ public class HermesSinkConnector extends SinkConnector {
 
     private static final Logger log = LoggerFactory.getLogger(HermesSinkConnector.class);
 
-    static final String VERSION = "0.1.0-SNAPSHOT";
+    static final String VERSION = "0.1.0";
 
     private Map<String, String> props;
 
