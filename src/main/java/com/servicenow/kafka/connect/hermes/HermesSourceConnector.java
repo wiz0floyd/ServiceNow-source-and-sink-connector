@@ -38,7 +38,7 @@ public class HermesSourceConnector extends SourceConnector {
         validateClustersReachable(config);
         this.props = Collections.unmodifiableMap(new HashMap<>(props));
         log.info("HermesSourceConnector started — Hermes instance: {}, source topic: {}, destination: {}",
-            config.getInstanceName(), config.getSourceTopic(), config.getConfluentTopic());
+            config.getInstanceName(), config.getSourceTopic(), config.getDestinationTopic());
     }
 
     @Override
