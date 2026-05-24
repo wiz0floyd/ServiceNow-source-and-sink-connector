@@ -19,7 +19,7 @@ public class HermesSourceConfig extends AbstractConfig {
     public static final String HERMES_INSTANCE_NAME_CONFIG = "hermes.instance.name";
     public static final String HERMES_SOURCE_TOPIC_CONFIG = "hermes.source.topic";
     public static final String HERMES_CONSUMER_GROUP_ID_CONFIG = "hermes.consumer.group.id";
-    public static final String CONFLUENT_TOPIC_CONFIG = "confluent.topic";
+    public static final String HERMES_DESTINATION_TOPIC_CONFIG = "hermes.destination.topic";
     public static final String HERMES_SSL_KEYSTORE_B64_CONFIG = "hermes.ssl.keystore.b64";
     public static final String HERMES_SSL_KEYSTORE_PASSWORD_CONFIG = "hermes.ssl.keystore.password";
     public static final String HERMES_SSL_TRUSTSTORE_B64_CONFIG = "hermes.ssl.truststore.b64";
@@ -63,7 +63,7 @@ public class HermesSourceConfig extends AbstractConfig {
             "the connector applies this prefix automatically if it is not already present."
         )
         .define(
-            CONFLUENT_TOPIC_CONFIG,
+            HERMES_DESTINATION_TOPIC_CONFIG,
             Type.STRING,
             ConfigDef.NO_DEFAULT_VALUE,
             new ConfigDef.NonEmptyString(),
@@ -167,8 +167,8 @@ public class HermesSourceConfig extends AbstractConfig {
         return getString(HERMES_CONSUMER_GROUP_ID_CONFIG);
     }
 
-    public String getConfluentTopic() {
-        return getString(CONFLUENT_TOPIC_CONFIG);
+    public String getDestinationTopic() {
+        return getString(HERMES_DESTINATION_TOPIC_CONFIG);
     }
 
     /**

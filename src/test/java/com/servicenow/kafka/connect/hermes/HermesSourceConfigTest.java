@@ -15,7 +15,7 @@ class HermesSourceConfigTest {
         props.put(HermesSourceConfig.HERMES_INSTANCE_NAME_CONFIG, "myinstance");
         props.put(HermesSourceConfig.HERMES_SOURCE_TOPIC_CONFIG, "snc.myinstance.sn_streamconnect.test-topic");
         props.put(HermesSourceConfig.HERMES_CONSUMER_GROUP_ID_CONFIG, "hermes-source-connector-grp");
-        props.put(HermesSourceConfig.CONFLUENT_TOPIC_CONFIG, "cc.dest-topic");
+        props.put(HermesSourceConfig.HERMES_DESTINATION_TOPIC_CONFIG, "cc.dest-topic");
         props.put(HermesSourceConfig.HERMES_SSL_KEYSTORE_B64_CONFIG, "dGVzdGtleXN0b3Jl");
         props.put(HermesSourceConfig.HERMES_SSL_KEYSTORE_PASSWORD_CONFIG, "keystorepass");
         props.put(HermesSourceConfig.HERMES_SSL_TRUSTSTORE_B64_CONFIG, "dGVzdHRydXN0c3RvcmU=");
@@ -34,7 +34,7 @@ class HermesSourceConfigTest {
         assertEquals("myinstance", config.getInstanceName());
         assertEquals("snc.myinstance.sn_streamconnect.test-topic", config.getSourceTopic());
         assertEquals("hermes-source-connector-grp", config.getGroupId());
-        assertEquals("cc.dest-topic", config.getConfluentTopic());
+        assertEquals("cc.dest-topic", config.getDestinationTopic());
     }
 
     @Test
@@ -64,9 +64,9 @@ class HermesSourceConfigTest {
     @Test
     void missingConfluentTopicThrows() {
         Map<String, String> props = validProps();
-        props.remove(HermesSourceConfig.CONFLUENT_TOPIC_CONFIG);
+        props.remove(HermesSourceConfig.HERMES_DESTINATION_TOPIC_CONFIG);
         ConfigException ex = assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
-        assertTrue(ex.getMessage().contains(HermesSourceConfig.CONFLUENT_TOPIC_CONFIG));
+        assertTrue(ex.getMessage().contains(HermesSourceConfig.HERMES_DESTINATION_TOPIC_CONFIG));
     }
 
     @Test
@@ -107,7 +107,7 @@ class HermesSourceConfigTest {
         props.put(HermesSourceConfig.HERMES_INSTANCE_NAME_CONFIG, "myinstance");
         props.put(HermesSourceConfig.HERMES_SOURCE_TOPIC_CONFIG, "snc.myinstance.sn_streamconnect.test-topic");
         props.put(HermesSourceConfig.HERMES_CONSUMER_GROUP_ID_CONFIG, "hermes-source-connector-grp");
-        props.put(HermesSourceConfig.CONFLUENT_TOPIC_CONFIG, "cc.dest-topic");
+        props.put(HermesSourceConfig.HERMES_DESTINATION_TOPIC_CONFIG, "cc.dest-topic");
         props.put(HermesSourceConfig.HERMES_SSL_ENABLED_CONFIG, "false");
         assertDoesNotThrow(() -> new HermesSourceConfig(props));
     }

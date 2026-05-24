@@ -6,7 +6,7 @@
     "hermes.instance.name": "hermes1",
     "hermes.source.topic": "snc.hermes1.sn_streamconnect.computerstats",
     "hermes.consumer.group.id": "hermes-source-docker-test",
-    "confluent.topic": "hermes-to-cc",
+    "hermes.destination.topic": "hermes-to-cc",
     "hermes.ssl.enabled": "true",
     "hermes.ssl.keystore.b64": "REPLACE_WITH_BASE64_PKCS12_KEYSTORE",
     "hermes.ssl.keystore.password": "REPLACE_WITH_KEYSTORE_PASSWORD",

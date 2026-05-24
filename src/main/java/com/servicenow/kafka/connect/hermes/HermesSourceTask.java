@@ -44,7 +44,7 @@ public class HermesSourceTask extends SourceTask {
     public void start(Map<String, String> props) {
         HermesSourceConfig config = new HermesSourceConfig(props);
         hermesTopic = config.getSourceTopic();
-        confluentTopic = config.getConfluentTopic();
+        confluentTopic = config.getDestinationTopic();
 
         String bootstrap1 = config.getCluster1BootstrapOverride().isEmpty()
             ? HermesBootstrapBuilder.buildSourceCluster1Bootstrap(config.getInstanceName())
@@ -222,7 +222,7 @@ public class HermesSourceTask extends SourceTask {
         this.hermesTopic = topic;
     }
 
-    void setConfluentTopic(String topic) {
+    void setDestinationTopic(String topic) {
         this.confluentTopic = topic;
     }
 }

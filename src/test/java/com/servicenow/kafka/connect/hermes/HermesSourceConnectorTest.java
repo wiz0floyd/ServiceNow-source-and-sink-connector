@@ -149,7 +149,7 @@ class HermesSourceConnectorTest {
         props.put(HermesSourceConfig.HERMES_INSTANCE_NAME_CONFIG, "myinstance");
         props.put(HermesSourceConfig.HERMES_SOURCE_TOPIC_CONFIG, SOURCE_TOPIC);
         props.put(HermesSourceConfig.HERMES_CONSUMER_GROUP_ID_CONFIG, "test-group");
-        props.put(HermesSourceConfig.CONFLUENT_TOPIC_CONFIG, "my-cc-topic");
+        props.put(HermesSourceConfig.HERMES_DESTINATION_TOPIC_CONFIG, "my-cc-topic");
         props.put(HermesSourceConfig.HERMES_SSL_KEYSTORE_B64_CONFIG, "dGVzdA==");
         props.put(HermesSourceConfig.HERMES_SSL_KEYSTORE_PASSWORD_CONFIG, "pass");
         props.put(HermesSourceConfig.HERMES_SSL_TRUSTSTORE_B64_CONFIG, "dGVzdA==");

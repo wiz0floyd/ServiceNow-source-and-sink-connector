@@ -48,7 +48,7 @@ class HermesSourceTaskTest {
         task.setConsumer1(mockConsumer1);
         task.setConsumer2(mockConsumer2);
         task.setHermesTopic(HERMES_TOPIC);
-        task.setConfluentTopic(CONFLUENT_TOPIC);
+        task.setDestinationTopic(CONFLUENT_TOPIC);
     }
 
     @Test
@@ -253,7 +253,7 @@ class HermesSourceTaskTest {
         p.put(HermesSourceConfig.HERMES_INSTANCE_NAME_CONFIG, "myinstance");
         p.put(HermesSourceConfig.HERMES_SOURCE_TOPIC_CONFIG, HERMES_TOPIC);
         p.put(HermesSourceConfig.HERMES_CONSUMER_GROUP_ID_CONFIG, "test-group");
-        p.put(HermesSourceConfig.CONFLUENT_TOPIC_CONFIG, CONFLUENT_TOPIC);
+        p.put(HermesSourceConfig.HERMES_DESTINATION_TOPIC_CONFIG, CONFLUENT_TOPIC);
         p.put(HermesSourceConfig.HERMES_SSL_KEYSTORE_B64_CONFIG, "dGVzdA==");
         p.put(HermesSourceConfig.HERMES_SSL_KEYSTORE_PASSWORD_CONFIG, "pass");
         p.put(HermesSourceConfig.HERMES_SSL_TRUSTSTORE_B64_CONFIG, "dGVzdA==");

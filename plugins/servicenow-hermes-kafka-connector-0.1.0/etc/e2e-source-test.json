@@ -7,7 +7,7 @@
     "hermes.instance.name": "e2etest",
     "hermes.source.topic": "hermes-source-topic",
     "hermes.consumer.group.id": "hermes-e2e-consumer-group",
-    "confluent.topic": "cc-destination-topic",
+    "hermes.destination.topic": "cc-destination-topic",
 
     "hermes.source.cluster1.bootstrap.override": "hermes-1:9092",
     "hermes.source.cluster2.bootstrap.override": "hermes-2:9092",
