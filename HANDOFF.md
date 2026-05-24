@@ -2,11 +2,13 @@
 
 ## Status
 
-**Service descriptor fix: DONE** (branch `worktree-fix-provisioning`, PR in progress)
+**DEPLOYED AND RUNNING** — connector `clcc-w7oj20j` (`sn-hermes-371c696c`) is RUNNING on `lkc-pgnjyq5` (2026-05-24).
 
-The JAR was missing Kafka Connect ServiceLoader descriptor files. Without them, the Confluent Cloud plugin scanner hangs in PROVISIONING indefinitely with no error logged.
+**Root cause of PROVISIONING hang: missing ServiceLoader descriptors** (now fixed). See fixed files below.
 
-**Fixed files added:**
+Also fixed: `InterruptedException` swallowed in `HermesSinkConnector.validateTopicExists()`. Port arrays expanded from 4 to 8 entries.
+
+**Fixed files:**
 ```
 src/main/resources/META-INF/services/org.apache.kafka.connect.sink.SinkConnector
   → com.servicenow.kafka.connect.hermes.HermesSinkConnector
@@ -15,42 +17,16 @@ src/main/resources/META-INF/services/org.apache.kafka.connect.source.SourceConne
   → com.servicenow.kafka.connect.hermes.HermesSourceConnector
 ```
 
-Also fixed in the same branch: `InterruptedException` swallowed in `HermesSinkConnector.validateTopicExists()` (interrupt flag was not restored, causing potential worker hang on shutdown). Port arrays expanded from 4 to 8 entries (covering the realistic 4–8 broker range per cluster).
-
 ---
 
-## Deployment Blockers — Fix These Before Redeploying
+## Egress Port Count — Important Finding
 
-Two bugs in `C:\dev\PEM Tool\sn_confluent\deploy\main.py` will silently break the connector after the JAR fix lands. See `C:\dev\PEM Tool\HANDOFF.md` for full detail.
+Deploying with `confluent.custom.connection.endpoints = hermes1.service-now.com:4000,...,4050` (51 ports) caused Confluent Cloud to hang in PROVISIONING for 40+ minutes and never reach RUNNING. Reducing to 8 ports (4000–4007) resulted in a clean ~6-minute provisioning.
 
-### Blocker 1 — `--plugin-id ccp-j0m1ww` skips the JAR upload
+**Current PEM Tool config (working):** 8 ports (4000–4007).  
+**Production note:** If Hermes broker metadata returns addresses on ports outside 4000–4007, those connections will be dropped by Confluent Cloud egress policy. Monitor for connection errors and expand the range if needed — but be aware that each additional block of ~50 ports adds significant provisioning time.
 
-Lines 589–607 of `deploy/main.py`: passing `--plugin-id` causes the deploy tool to reuse the existing plugin artifact without uploading the fixed JAR. The connector will remain stuck in PROVISIONING even after the fix.
-
-**For the next deploy: run without `--plugin-id`:**
-```bash
-cd "C:\dev\PEM Tool"
-sn-confluent deploy --cloud gcp --pem-dir . --no-wizard
-```
-
-Record the new plugin ID printed after upload (`ccp-XXXXXXXX`) and save it in `deploy.conf` as `plugin_id` for future runs. Do not pass it on the command line — put it in the config so the tool can eventually be updated to upload-and-update rather than create-new.
-
-### Blocker 2 — Egress allowlist only covers 4 ports
-
-Line 355 of `deploy/main.py` hardcodes:
-```python
-"confluent.custom.connection.endpoints": f"{instance_name}.service-now.com:4000,4001,4002,4003",
-```
-
-Hermes sink cluster spans ports **4000–4050**. Broker metadata responses return addresses on ports 4004–4050. Confluent Cloud's network policy will drop those connections silently. The connector will appear to start but produce zero messages.
-
-Fix (in `deploy/main.py` line 355):
-```python
-"confluent.custom.connection.endpoints": (
-    f"{instance_name}.service-now.com:"
-    + ",".join(str(p) for p in range(4000, 4051))
-),
-```
+The endpoint format is `hostname:port1,port2,...` (single hostname, comma-separated ports). Full `host:port` pairs per entry is rejected by the API.
 
 ---
 
@@ -76,8 +52,9 @@ mvn package
 |---|---|
 | Environment | `env-3dor1o` |
 | Cluster | `lkc-pgnjyq5` (Dedicated, GCP us-east1) |
-| Active connector | `clcc-k8qxqkg` (`sn-hermes-371c696c`) — stuck in PROVISIONING, needs rebuild + redeploy |
-| Old plugin (broken, do not reuse) | `ccp-j0m1ww` |
+| Active connector | `clcc-w7oj20j` (`sn-hermes-371c696c`) — **RUNNING** |
+| Plugin (correct fixed JAR) | `ccp-gjd0nn` |
+| Old plugins (broken, do not reuse) | `ccp-j0m1ww`, `ccp-10738v` |
 | Kafka API key | `JBQOQ5YHAGKXMIZB` (in `deploy.conf`) |
 
 ---
