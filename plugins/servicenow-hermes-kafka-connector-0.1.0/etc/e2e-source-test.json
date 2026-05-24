@@ -1,0 +1,21 @@
+{
+  "name": "hermes-source-e2e",
+  "config": {
+    "connector.class": "com.servicenow.kafka.connect.hermes.HermesSourceConnector",
+    "tasks.max": "1",
+
+    "hermes.instance.name": "e2etest",
+    "hermes.source.topic": "hermes-source-topic",
+    "hermes.consumer.group.id": "hermes-e2e-consumer-group",
+    "confluent.topic": "cc-destination-topic",
+
+    "hermes.source.cluster1.bootstrap.override": "hermes-1:9092",
+    "hermes.source.cluster2.bootstrap.override": "hermes-2:9092",
+    "hermes.ssl.enabled": "false",
+
+    "hermes.ssl.keystore.b64": "placeholder-not-used-when-ssl-disabled",
+    "hermes.ssl.keystore.password": "placeholder",
+    "hermes.ssl.truststore.b64": "placeholder-not-used-when-ssl-disabled",
+    "hermes.ssl.truststore.password": "placeholder"
+  }
+}
