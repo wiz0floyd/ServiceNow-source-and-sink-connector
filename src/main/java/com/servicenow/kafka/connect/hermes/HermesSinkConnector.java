@@ -80,6 +80,10 @@ public class HermesSinkConnector extends SinkConnector {
             log.info("Confirmed Hermes topic '{}' exists", hermesTopic);
         } catch (ConnectException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ConnectException(
+                "Interrupted while verifying Hermes topic '" + hermesTopic + "'", e);
         } catch (Exception e) {
             throw new ConnectException(
                 "Failed to verify Hermes topic '" + hermesTopic + "' — could not connect to " +
