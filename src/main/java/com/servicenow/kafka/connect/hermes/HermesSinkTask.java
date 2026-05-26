@@ -166,6 +166,7 @@ public class HermesSinkTask extends SinkTask {
             props.put(InMemorySslEngineFactory.KEYSTORE_PASSWORD_CONFIG, config.getKeystorePassword());
             props.put(InMemorySslEngineFactory.TRUSTSTORE_B64_CONFIG, config.getTruststoreB64());
             props.put(InMemorySslEngineFactory.TRUSTSTORE_PASSWORD_CONFIG, config.getTruststorePassword());
+            props.put(InMemorySslEngineFactory.CERT_EXPIRY_WARN_DAYS_CONFIG, config.getCertExpiryWarnDays());
         }
 
         return props;

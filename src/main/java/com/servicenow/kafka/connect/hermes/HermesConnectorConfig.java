@@ -30,6 +30,7 @@ public class HermesConnectorConfig extends AbstractConfig {
     public static final String HERMES_PRODUCER_COMPRESSION_TYPE_CONFIG = "hermes.producer.compression.type";
     public static final String HERMES_SINK_BOOTSTRAP_OVERRIDE_CONFIG = "hermes.sink.bootstrap.override";
     public static final String HERMES_SSL_ENABLED_CONFIG = "hermes.ssl.enabled";
+    public static final String HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG = "hermes.ssl.cert.expiry.warn.days";
 
     // ---- Group name constants ----
 
@@ -166,6 +167,16 @@ public class HermesConnectorConfig extends AbstractConfig {
             "Set to false to disable mTLS and use PLAINTEXT. " +
             "For local development / Docker E2E testing ONLY — never disable SSL in production.",
             GROUP_SECURITY, 5, Width.SHORT, "SSL Enabled"
+        )
+        .define(
+            HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG,
+            Type.INT,
+            30,
+            ConfigDef.Range.atLeast(1),
+            Importance.LOW,
+            "Number of days before mTLS certificate expiration at which a WARN log is emitted. " +
+            "Default 30. Set higher for earlier advance warning.",
+            GROUP_SECURITY, 6, Width.SHORT, "Cert Expiry Warn Days"
         );
 
     public HermesConnectorConfig(Map<String, String> props) {
@@ -255,6 +266,10 @@ public class HermesConnectorConfig extends AbstractConfig {
 
     public boolean isSslEnabled() {
         return getBoolean(HERMES_SSL_ENABLED_CONFIG);
+    }
+
+    public int getCertExpiryWarnDays() {
+        return getInt(HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG);
     }
 
     // ---- REST validate() helper ----
