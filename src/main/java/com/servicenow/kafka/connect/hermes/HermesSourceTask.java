@@ -39,8 +39,8 @@ public class HermesSourceTask extends SourceTask {
 
     private volatile boolean stopping = false;
     private volatile boolean firstRecordLogged = false;
-    private KafkaConsumer<byte[], byte[]> consumer1;
-    private KafkaConsumer<byte[], byte[]> consumer2;
+    private volatile KafkaConsumer<byte[], byte[]> consumer1;
+    private volatile KafkaConsumer<byte[], byte[]> consumer2;
     private String hermesTopic;
     private String confluentTopic;
     private Duration pollTimeout = Duration.ofMillis(100);

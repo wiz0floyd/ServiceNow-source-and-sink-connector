@@ -3,6 +3,7 @@ package com.servicenow.kafka.connect.hermes;
 import com.servicenow.kafka.connect.hermes.ssl.InMemorySslEngineFactory;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -74,6 +75,13 @@ public class HermesSourceConnector extends SourceConnector {
     @Override
     public void stop() {
         log.info("HermesSourceConnector stopped");
+    }
+
+    @Override
+    public Config validate(Map<String, String> connectorConfigs) {
+        Config result = super.validate(connectorConfigs);
+        HermesSourceConfig.addSslValidationErrors(connectorConfigs, result);
+        return result;
     }
 
     @Override

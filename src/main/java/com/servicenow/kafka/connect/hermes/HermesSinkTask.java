@@ -44,7 +44,8 @@ public class HermesSinkTask extends SinkTask {
         log.info("HermesSinkTask starting — bootstrap: {}, topic: {}", bootstrap, hermesTopic);
         producer = createProducer(buildProducerProperties(config, bootstrap));
         errantRecordReporter = context.errantRecordReporter();
-        metrics.register(config.getInstanceName(), 0);
+        int taskId = Integer.parseInt(props.getOrDefault("task.id", "0"));
+        metrics.register(config.getInstanceName(), taskId);
         log.info("HermesSinkTask producer initialized");
     }
 
@@ -52,10 +53,11 @@ public class HermesSinkTask extends SinkTask {
     public void put(Collection<SinkRecord> records) {
         if (records.isEmpty()) return;
 
-        // Fail fast if a previous async send failed without a reporter to absorb it
-        Throwable prior = sendException.get();
+        // Fail fast if a previous async send failed without a reporter to absorb it.
+        // getAndSet is atomic — avoids a TOCTOU window where a concurrent callback
+        // fires between get() and set(null) and its exception gets cleared.
+        Throwable prior = sendException.getAndSet(null);
         if (prior != null) {
-            sendException.set(null);
             throw new ConnectException("Prior async send failed: " + prior.getMessage(), prior);
         }
 

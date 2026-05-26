@@ -14,7 +14,7 @@ public class HermesSourceTaskMetrics implements HermesSourceTaskMetricsMBean {
     public void register(String connectorName, int taskId) {
         try {
             objectName = new ObjectName(
-                "servicenow.kafka.connect:type=HermesSourceTask,connector=" + connectorName + ",task=" + taskId);
+                "servicenow.kafka.connect:type=HermesSourceTask,connector=" + ObjectName.quote(connectorName) + ",task=" + taskId);
             ManagementFactory.getPlatformMBeanServer().registerMBean(this, objectName);
         } catch (Exception e) {
             // Non-fatal — metrics are best-effort
@@ -22,8 +22,10 @@ public class HermesSourceTaskMetrics implements HermesSourceTaskMetricsMBean {
     }
 
     public void unregister() {
-        if (objectName != null) {
-            try { ManagementFactory.getPlatformMBeanServer().unregisterMBean(objectName); } catch (Exception ignored) {}
+        ObjectName name = objectName;
+        objectName = null;
+        if (name != null) {
+            try { ManagementFactory.getPlatformMBeanServer().unregisterMBean(name); } catch (Exception ignored) {}
         }
     }
 

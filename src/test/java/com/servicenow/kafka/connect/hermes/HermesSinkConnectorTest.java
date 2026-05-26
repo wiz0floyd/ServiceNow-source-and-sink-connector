@@ -59,13 +59,21 @@ class HermesSinkConnectorTest {
     }
 
     @Test
-    void taskConfigsAreIdentical() throws Exception {
+    void taskConfigsHaveSequentialTaskIds() throws Exception {
         String targetTopic = "snc.myinstance.sn_streamconnect.test-topic";
         setupAdminClientWithTopics(Set.of(targetTopic));
         connector.start(validProps(targetTopic));
 
-        List<Map<String, String>> configs = connector.taskConfigs(2);
-        assertEquals(configs.get(0), configs.get(1));
+        List<Map<String, String>> configs = connector.taskConfigs(3);
+        assertEquals(3, configs.size());
+        // Each task gets a unique task.id so JMX ObjectNames don't collide
+        for (int i = 0; i < configs.size(); i++) {
+            assertEquals(String.valueOf(i), configs.get(i).get("task.id"));
+        }
+        // Connector config propagated to every task
+        for (Map<String, String> cfg : configs) {
+            assertEquals(targetTopic, cfg.get(HermesConnectorConfig.HERMES_TOPIC_CONFIG));
+        }
     }
 
     @Test

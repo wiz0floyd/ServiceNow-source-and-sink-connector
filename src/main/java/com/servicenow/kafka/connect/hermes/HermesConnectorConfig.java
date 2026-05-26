@@ -1,6 +1,7 @@
 package com.servicenow.kafka.connect.hermes;
 
 import org.apache.kafka.common.config.AbstractConfig;
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -254,6 +255,28 @@ public class HermesConnectorConfig extends AbstractConfig {
 
     public boolean isSslEnabled() {
         return getBoolean(HERMES_SSL_ENABLED_CONFIG);
+    }
+
+    // ---- REST validate() helper ----
+
+    /**
+     * Adds cross-field SSL errors to the ConfigValue list returned by Connector.validate() so
+     * that missing keystore/truststore values are surfaced by the Connect REST API pre-flight,
+     * not only at connector start() time.
+     */
+    public static void addSslValidationErrors(Map<String, String> props, Config config) {
+        boolean sslEnabled = Boolean.parseBoolean(props.getOrDefault(HERMES_SSL_ENABLED_CONFIG, "true"));
+        if (!sslEnabled) return;
+        for (String key : SENSITIVE_PROPERTIES) {
+            String val = props.getOrDefault(key, "");
+            if (val.isEmpty()) {
+                config.configValues().stream()
+                    .filter(cv -> cv.name().equals(key))
+                    .findFirst()
+                    .ifPresent(cv -> cv.addErrorMessage(
+                        "Required when " + HERMES_SSL_ENABLED_CONFIG + "=true"));
+            }
+        }
     }
 
     // ---- Validators ----

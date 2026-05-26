@@ -3,6 +3,7 @@ package com.servicenow.kafka.connect.hermes;
 import com.servicenow.kafka.connect.hermes.ssl.InMemorySslEngineFactory;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -42,11 +43,21 @@ public class HermesSinkConnector extends SinkConnector {
     }
 
     @Override
+    public Config validate(Map<String, String> connectorConfigs) {
+        Config result = super.validate(connectorConfigs);
+        HermesConnectorConfig.addSslValidationErrors(connectorConfigs, result);
+        return result;
+    }
+
+    @Override
     public List<Map<String, String>> taskConfigs(int maxTasks) {
-        // All tasks get the same config — each opens its own producer
+        // Each task gets a copy of the connector config with its own task.id injected
+        // so JMX MBean ObjectNames are unique per task.
         List<Map<String, String>> configs = new ArrayList<>(maxTasks);
         for (int i = 0; i < maxTasks; i++) {
-            configs.add(props);
+            Map<String, String> taskConfig = new HashMap<>(props);
+            taskConfig.put("task.id", String.valueOf(i));
+            configs.add(Collections.unmodifiableMap(taskConfig));
         }
         return configs;
     }
@@ -65,7 +76,9 @@ public class HermesSinkConnector extends SinkConnector {
 
     void validateTopicExists(HermesConnectorConfig config) {
         String hermesTopic = config.getHermesTopic();
-        String bootstrap = HermesBootstrapBuilder.buildSinkBootstrap(config.getInstanceName());
+        String bootstrap = config.getSinkBootstrapOverride().isEmpty()
+            ? HermesBootstrapBuilder.buildSinkBootstrap(config.getInstanceName())
+            : config.getSinkBootstrapOverride();
         log.info("Validating Hermes topic '{}' exists at {}", hermesTopic, bootstrap);
 
         Map<String, Object> adminProps = buildAdminProperties(config, bootstrap);
@@ -102,6 +115,9 @@ public class HermesSinkConnector extends SinkConnector {
     }
 
     static void addSslProperties(Map<String, Object> props, HermesConnectorConfig config) {
+        if (!config.isSslEnabled()) {
+            return;
+        }
         // Values pass through as Password objects so Kafka client-side config logging
         // never prints them in plaintext.
         props.put("security.protocol", "SSL");
