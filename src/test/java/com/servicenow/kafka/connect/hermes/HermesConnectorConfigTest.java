@@ -128,4 +128,32 @@ class HermesConnectorConfigTest {
         assertEquals("1", config.getProducerAcks());
         assertEquals(5, config.getProducerRetries());
     }
+
+    @Test
+    void customLingerMsIsRespected() {
+        Map<String, String> props = validProps();
+        props.put(HermesConnectorConfig.HERMES_PRODUCER_LINGER_MS_CONFIG, "10");
+        HermesConnectorConfig config = new HermesConnectorConfig(props);
+        assertEquals(10, config.getProducerLingerMs());
+    }
+
+    @Test
+    void defaultLingerMsIsFive() {
+        HermesConnectorConfig config = new HermesConnectorConfig(validProps());
+        assertEquals(5, config.getProducerLingerMs());
+    }
+
+    @Test
+    void compressionTypeValidatorRejectsInvalidValue() {
+        Map<String, String> props = validProps();
+        props.put(HermesConnectorConfig.HERMES_PRODUCER_COMPRESSION_TYPE_CONFIG, "invalid");
+        assertThrows(ConfigException.class, () -> new HermesConnectorConfig(props));
+    }
+
+    @Test
+    void acksValidatorRejectsInvalidValue() {
+        Map<String, String> props = validProps();
+        props.put(HermesConnectorConfig.HERMES_PRODUCER_ACKS_CONFIG, "-1");
+        assertThrows(ConfigException.class, () -> new HermesConnectorConfig(props));
+    }
 }

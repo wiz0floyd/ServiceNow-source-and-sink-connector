@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.SSLEngine;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -128,6 +129,42 @@ class InMemorySslEngineFactoryTest {
         assertTrue(keys.contains(InMemorySslEngineFactory.TRUSTSTORE_PASSWORD_CONFIG));
         factory.close();
     }
+
+    @Test
+    void createClientSslEngineHasHostnameVerificationDisabled() {
+        // Hermes uses instance-signed certs (not a public CA); hostname verification is
+        // intentionally disabled. mTLS provides mutual auth instead. This test documents
+        // and protects that design decision.
+        InMemorySslEngineFactory factory = new InMemorySslEngineFactory();
+        factory.configure(validConfigs());
+        SSLEngine engine = factory.createClientSslEngine("myinstance.service-now.com", 4000, "");
+        String algo = engine.getSSLParameters().getEndpointIdentificationAlgorithm();
+        assertTrue(algo == null || algo.isEmpty(),
+            "Hostname verification must be disabled for Hermes mTLS; got: " + algo);
+        factory.close();
+    }
+
+    @Test
+    void createClientSslEngineEnforcesTls12Floor() {
+        InMemorySslEngineFactory factory = new InMemorySslEngineFactory();
+        factory.configure(validConfigs());
+        SSLEngine engine = factory.createClientSslEngine("myinstance.service-now.com", 4000, "");
+        java.util.List<String> protocols = Arrays.asList(engine.getEnabledProtocols());
+        assertFalse(protocols.contains("TLSv1"),
+            "TLSv1.0 must not be enabled; enabled: " + protocols);
+        assertFalse(protocols.contains("TLSv1.1"),
+            "TLSv1.1 must not be enabled; enabled: " + protocols);
+        assertTrue(protocols.contains("TLSv1.2"),
+            "TLSv1.2 must be enabled; enabled: " + protocols);
+        factory.close();
+    }
+
+    // TODO(SEC-03): add configureWarnsWhenCertExpiresWithin30Days() once a short-validity
+    // test fixture is available. The existing test-keystore.p12 has 10-year validity
+    // (expires ~2036-05-20), so the 30-day warning threshold is never triggered.
+    // To test: generate a fixture with -validity 1 (or use a pre-expired cert with
+    // validity shifted to trigger the <= 30 day path), then assert that a WARN log
+    // entry is emitted via a SLF4J test appender.
 
     // ---- Helpers ----
 

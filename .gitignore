@@ -17,6 +17,7 @@ Thumbs.db
 
 # Secrets — never commit real keystores or creds
 *.p12
+!src/test/resources/fixtures/*.p12
 *.jks
 *.pem
 *.key

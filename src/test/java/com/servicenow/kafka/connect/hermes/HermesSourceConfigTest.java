@@ -180,6 +180,33 @@ class HermesSourceConfigTest {
     }
 
     @Test
+    void defaultPollTimeoutIsOneHundred() {
+        HermesSourceConfig config = new HermesSourceConfig(validProps());
+        assertEquals(100, config.getPollTimeoutMs());
+    }
+
+    @Test
+    void customPollTimeoutIsRespected() {
+        Map<String, String> props = validProps();
+        props.put(HermesSourceConfig.HERMES_CONSUMER_POLL_TIMEOUT_MS_CONFIG, "200");
+        HermesSourceConfig config = new HermesSourceConfig(props);
+        assertEquals(200, config.getPollTimeoutMs());
+    }
+
+    @Test
+    void defaultAutoOffsetResetIsEarliest() {
+        HermesSourceConfig config = new HermesSourceConfig(validProps());
+        assertEquals("earliest", config.getAutoOffsetReset());
+    }
+
+    @Test
+    void invalidAutoOffsetResetThrows() {
+        Map<String, String> props = validProps();
+        props.put(HermesSourceConfig.HERMES_CONSUMER_AUTO_OFFSET_RESET_CONFIG, "invalid");
+        assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+    }
+
+    @Test
     void sensitivePropertiesCsvContainsAllFourSslKeys() {
         String csv = HermesSourceConfig.SENSITIVE_PROPERTIES_CSV;
         assertTrue(csv.contains(HermesSourceConfig.HERMES_SSL_KEYSTORE_B64_CONFIG));
