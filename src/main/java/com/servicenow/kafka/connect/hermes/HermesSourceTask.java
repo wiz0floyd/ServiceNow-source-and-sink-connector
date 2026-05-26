@@ -48,6 +48,7 @@ public class HermesSourceTask extends SourceTask {
     // Tracks offsets confirmed by the Connect worker via commitRecord().
     private final ConcurrentHashMap<Map<String, Object>, Map<String, Object>> committedOffsets =
         new ConcurrentHashMap<>();
+    private final HermesSourceTaskMetrics metrics = new HermesSourceTaskMetrics();
 
     @Override
     public String version() {
@@ -77,6 +78,7 @@ public class HermesSourceTask extends SourceTask {
         subscribeWithOffsetRestore(consumer1, CLUSTER_1);
         subscribeWithOffsetRestore(consumer2, CLUSTER_2);
 
+        metrics.register(config.getInstanceName(), 0);
         log.info("HermesSourceTask consumers initialized for both source clusters");
     }
 
@@ -100,6 +102,7 @@ public class HermesSourceTask extends SourceTask {
         consumer1 = null;
         closeConsumer(consumer2, CLUSTER_2);
         consumer2 = null;
+        metrics.unregister();
     }
 
     @Override
@@ -175,10 +178,16 @@ public class HermesSourceTask extends SourceTask {
         }
         log.debug("HermesSourceTask polled {} record(s) from cluster={}", records.count(), clusterId);
 
+        int count = records.count();
+        if (count > 0) {
+            if (CLUSTER_1.equals(clusterId)) metrics.recordPollCluster1(count);
+            else metrics.recordPollCluster2(count);
+        }
+
         for (ConsumerRecord<byte[], byte[]> r : records) {
             out.add(toSourceRecord(r, clusterId));
         }
-        return records.count();
+        return count;
     }
 
     private SourceRecord toSourceRecord(ConsumerRecord<byte[], byte[]> r, String clusterId) {

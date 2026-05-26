@@ -27,6 +27,7 @@ public class HermesSinkTask extends SinkTask {
     private ErrantRecordReporter errantRecordReporter;
     private final AtomicReference<Throwable> sendException = new AtomicReference<>();
     private volatile boolean firstRecordLogged = false;
+    private final HermesSinkTaskMetrics metrics = new HermesSinkTaskMetrics();
 
     @Override
     public String version() {
@@ -37,10 +38,13 @@ public class HermesSinkTask extends SinkTask {
     public void start(Map<String, String> props) {
         HermesConnectorConfig config = new HermesConnectorConfig(props);
         hermesTopic = config.getHermesTopic();
-        String bootstrap = HermesBootstrapBuilder.buildSinkBootstrap(config.getInstanceName());
+        String bootstrap = config.getSinkBootstrapOverride().isEmpty()
+            ? HermesBootstrapBuilder.buildSinkBootstrap(config.getInstanceName())
+            : config.getSinkBootstrapOverride();
         log.info("HermesSinkTask starting — bootstrap: {}, topic: {}", bootstrap, hermesTopic);
         producer = createProducer(buildProducerProperties(config, bootstrap));
         errantRecordReporter = context.errantRecordReporter();
+        metrics.register(config.getInstanceName(), 0);
         log.info("HermesSinkTask producer initialized");
     }
 
@@ -60,7 +64,11 @@ public class HermesSinkTask extends SinkTask {
         for (SinkRecord record : records) {
             ProducerRecord<byte[], byte[]> pr = toProducerRecord(record);
             producer.send(pr, (metadata, exception) -> {
-                if (exception == null) return;
+                if (exception == null) {
+                    metrics.recordForwarded(1);
+                    return;
+                }
+                metrics.recordFailed();
                 if (errantRecordReporter != null) {
                     errantRecordReporter.report(record, exception);
                 } else {
@@ -101,6 +109,7 @@ public class HermesSinkTask extends SinkTask {
             producer.close(Duration.ofSeconds(30));
             producer = null;
         }
+        metrics.unregister();
     }
 
     // ---- Record conversion ----
@@ -146,14 +155,16 @@ public class HermesSinkTask extends SinkTask {
         props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
         props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120000);
 
-        // SSL — in-memory keystore via KIP-519. Values pass through as Password
-        // objects so they remain masked if the KafkaProducer dumps its config.
-        props.put("security.protocol", "SSL");
-        props.put("ssl.engine.factory.class", InMemorySslEngineFactory.class.getName());
-        props.put(InMemorySslEngineFactory.KEYSTORE_B64_CONFIG, config.getKeystoreB64());
-        props.put(InMemorySslEngineFactory.KEYSTORE_PASSWORD_CONFIG, config.getKeystorePassword());
-        props.put(InMemorySslEngineFactory.TRUSTSTORE_B64_CONFIG, config.getTruststoreB64());
-        props.put(InMemorySslEngineFactory.TRUSTSTORE_PASSWORD_CONFIG, config.getTruststorePassword());
+        if (config.isSslEnabled()) {
+            // SSL — in-memory keystore via KIP-519. Values pass through as Password
+            // objects so they remain masked if the KafkaProducer dumps its config.
+            props.put("security.protocol", "SSL");
+            props.put("ssl.engine.factory.class", InMemorySslEngineFactory.class.getName());
+            props.put(InMemorySslEngineFactory.KEYSTORE_B64_CONFIG, config.getKeystoreB64());
+            props.put(InMemorySslEngineFactory.KEYSTORE_PASSWORD_CONFIG, config.getKeystorePassword());
+            props.put(InMemorySslEngineFactory.TRUSTSTORE_B64_CONFIG, config.getTruststoreB64());
+            props.put(InMemorySslEngineFactory.TRUSTSTORE_PASSWORD_CONFIG, config.getTruststorePassword());
+        }
 
         return props;
     }
