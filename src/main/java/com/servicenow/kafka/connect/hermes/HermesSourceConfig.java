@@ -28,6 +28,8 @@ public class HermesSourceConfig extends AbstractConfig {
     public static final String HERMES_SOURCE_CLUSTER1_BOOTSTRAP_OVERRIDE_CONFIG = "hermes.source.cluster1.bootstrap.override";
     public static final String HERMES_SOURCE_CLUSTER2_BOOTSTRAP_OVERRIDE_CONFIG = "hermes.source.cluster2.bootstrap.override";
     public static final String HERMES_SSL_ENABLED_CONFIG = "hermes.ssl.enabled";
+    public static final String HERMES_CONSUMER_POLL_TIMEOUT_MS_CONFIG = "hermes.consumer.poll.timeout.ms";
+    public static final String HERMES_CONSUMER_AUTO_OFFSET_RESET_CONFIG = "hermes.consumer.auto.offset.reset";
 
     // ---- ConfigDef ----
 
@@ -137,6 +139,24 @@ public class HermesSourceConfig extends AbstractConfig {
             Importance.LOW,
             "Set to false to disable mTLS and use plaintext. " +
             "For local development / Docker E2E testing ONLY — never disable SSL in production."
+        )
+        .define(
+            HERMES_CONSUMER_POLL_TIMEOUT_MS_CONFIG,
+            Type.INT,
+            100,
+            ConfigDef.Range.atLeast(0),
+            Importance.LOW,
+            "Maximum milliseconds consumer.poll() will block per cluster. Lower values reduce latency; " +
+            "higher values reduce CPU when idle."
+        )
+        .define(
+            HERMES_CONSUMER_AUTO_OFFSET_RESET_CONFIG,
+            Type.STRING,
+            "earliest",
+            ConfigDef.ValidString.in("earliest", "latest", "none"),
+            Importance.LOW,
+            "Offset reset policy when no stored offset exists for a partition. 'latest' skips historical " +
+            "records on first deployment; 'earliest' replays full topic history."
         );
 
     public HermesSourceConfig(Map<String, String> props) {
@@ -219,5 +239,13 @@ public class HermesSourceConfig extends AbstractConfig {
 
     public boolean isSslEnabled() {
         return getBoolean(HERMES_SSL_ENABLED_CONFIG);
+    }
+
+    public int getPollTimeoutMs() {
+        return getInt(HERMES_CONSUMER_POLL_TIMEOUT_MS_CONFIG);
+    }
+
+    public String getAutoOffsetReset() {
+        return getString(HERMES_CONSUMER_AUTO_OFFSET_RESET_CONFIG);
     }
 }

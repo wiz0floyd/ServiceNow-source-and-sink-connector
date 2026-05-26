@@ -70,7 +70,7 @@ public class HermesSinkConnector extends SinkConnector {
 
         Map<String, Object> adminProps = buildAdminProperties(config, bootstrap);
         try (AdminClient admin = createAdminClient(adminProps)) {
-            Set<String> topics = admin.listTopics().names().get(30, TimeUnit.SECONDS);
+            Set<String> topics = admin.listTopics().names().get(10, TimeUnit.SECONDS);
             if (!topics.contains(hermesTopic)) {
                 throw new ConnectException(
                     "Hermes topic '" + hermesTopic + "' does not exist. " +
@@ -95,8 +95,8 @@ public class HermesSinkConnector extends SinkConnector {
     static Map<String, Object> buildAdminProperties(HermesConnectorConfig config, String bootstrap) {
         Map<String, Object> props = new HashMap<>();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
-        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "20000");
-        props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "25000");
+        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "8000");
+        props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "10000");
         addSslProperties(props, config);
         return props;
     }

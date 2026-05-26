@@ -60,6 +60,17 @@ class HermesSourceConnectorTest {
     }
 
     @Test
+    void taskConfigsWarnsWhenMaxTasksGreaterThanOne() throws Exception {
+        setupAdminClientWithTopics(Set.of(SOURCE_TOPIC));
+        connector.start(validProps());
+
+        // Even with maxTasks=3, the connector must return exactly one task config
+        // (warning is emitted to the log but not testable here without log capture)
+        List<Map<String, String>> configs = connector.taskConfigs(3);
+        assertEquals(1, configs.size());
+    }
+
+    @Test
     void taskConfigsContainsOriginalProps() throws Exception {
         setupAdminClientWithTopics(Set.of(SOURCE_TOPIC));
         Map<String, String> props = validProps();
@@ -69,6 +80,24 @@ class HermesSourceConnectorTest {
         for (Map.Entry<String, String> entry : props.entrySet()) {
             assertEquals(entry.getValue(), taskConfig.get(entry.getKey()),
                 "Task config must contain original property: " + entry.getKey());
+        }
+    }
+
+    @Test
+    void startThrowsConnectExceptionAndRestoresInterruptFlagOnInterruption() throws Exception {
+        when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+        when(mockListTopicsResult.names()).thenReturn(mockTopicsFuture);
+        when(mockTopicsFuture.get(anyLong(), any(TimeUnit.class)))
+            .thenThrow(new InterruptedException("simulated interrupt"));
+
+        try {
+            assertThrows(ConnectException.class,
+                () -> connector.start(validProps()));
+            assertTrue(Thread.currentThread().isInterrupted(),
+                "start() must restore the interrupt flag after catching InterruptedException");
+        } finally {
+            // Clear the interrupt flag so it does not bleed into subsequent tests.
+            Thread.interrupted();
         }
     }
 

@@ -2,6 +2,17 @@
 
 Kafka Connect sink connector that streams data from Confluent Cloud into a ServiceNow instance Hermes Kafka cluster over mutual TLS (mTLS).
 
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Quick Start — Sink](docs/quick-start-sink.md) | Deploy the sink connector on Confluent Cloud Custom Connectors |
+| [Quick Start — Source](docs/quick-start-source.md) | Deploy the source connector on Confluent Cloud Custom Connectors |
+| [Source Config Reference](docs/source-config-reference.md) | All source connector configuration properties |
+| [Troubleshooting](docs/troubleshooting.md) | SSL failures, missing topics, consumer lag, certificate rotation |
+
+Sample configuration files: [`config/quickstart-hermes-sink.properties`](config/quickstart-hermes-sink.properties) and [`config/quickstart-hermes-source.properties`](config/quickstart-hermes-source.properties).
+
 ## What it does
 
 - Reads from a Confluent Cloud topic (any data — pass-through bytes).
@@ -47,6 +58,14 @@ base64 -i keystore.p12
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("keystore.p12"))
 ```
 
+## Source connector
+
+The package also includes a source connector (`HermesSourceConnector`) that reads from a Hermes topic and writes to a Confluent Cloud topic. It runs two embedded `KafkaConsumer` instances — one per Hermes peer cluster (ports 4100–4150 and 4200–4250) — inside a single task.
+
+`tasks.max` is effectively **1 per connector instance**. The dual-cluster state lives inside that one task and cannot be split across tasks. For higher throughput, deploy additional connector instances; each instance manages its own independent dual-consumer pair.
+
+See the [Quick Start — Source](docs/quick-start-source.md), [Source Config Reference](docs/source-config-reference.md), and the sample [`config/quickstart-hermes-source.properties`](config/quickstart-hermes-source.properties).
+
 ## Delivery semantics
 
 End-to-end **at-least-once**. The producer is configured with `enable.idempotence=true` and `acks=all`. Idempotency / dedup is the consumer's responsibility on the Hermes side.
@@ -75,6 +94,29 @@ confluent connect custom-plugin create hermes-sink-connector \
 In the Confluent Cloud Console **Add Plugin** flow, paste the four property names into the **Sensitive properties** field when prompted.
 
 The canonical list is exported from the code at `HermesConnectorConfig.SENSITIVE_PROPERTIES_CSV` — if more sensitive configs are added later, update that constant and they'll appear here automatically.
+
+## Performance
+
+### Sink Connector
+The sink connector uses an async send pipeline: records are dispatched to the Hermes producer without blocking, and offsets are committed only after `flush()` confirms delivery. Throughput scales with Hermes broker capacity and network RTT.
+
+**Key tuning levers:**
+| Config | Default | Effect |
+|--------|---------|--------|
+| `hermes.producer.linger.ms` | 5 | Increase to coalesce small batches (improves throughput at cost of latency) |
+| `hermes.producer.batch.size` | 16384 | Max bytes per batch |
+| `hermes.producer.compression.type` | none | `lz4` recommended for CPU/throughput trade-off |
+| `tasks.max` | 1 | Each task opens one producer; increase for parallel sink tasks |
+
+### Source Connector
+The source connector runs two embedded KafkaConsumers (one per Hermes peer cluster) within a single task. The effective throughput limit is `hermes.consumer.max.poll.records × 2` records per poll cycle.
+
+**Key tuning levers:**
+| Config | Default | Effect |
+|--------|---------|--------|
+| `hermes.consumer.max.poll.records` | 500 | Records per consumer per poll cycle (max 1000 total/cycle) |
+| `hermes.consumer.poll.timeout.ms` | 100 | Max ms to block per cluster; lower = lower latency, higher CPU |
+| Deploy additional instances | — | Each instance adds one task with two consumers |
 
 ## License
 

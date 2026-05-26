@@ -6,9 +6,15 @@ import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.InterruptException;
+import org.apache.kafka.common.errors.RetriableException;
+import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
@@ -22,6 +28,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class HermesSourceTask extends SourceTask {
 
@@ -30,10 +37,17 @@ public class HermesSourceTask extends SourceTask {
     static final String CLUSTER_1 = "1";
     static final String CLUSTER_2 = "2";
 
+    private volatile boolean stopping = false;
+    private volatile boolean firstRecordLogged = false;
     private KafkaConsumer<byte[], byte[]> consumer1;
     private KafkaConsumer<byte[], byte[]> consumer2;
     private String hermesTopic;
     private String confluentTopic;
+    private Duration pollTimeout = Duration.ofMillis(100);
+
+    // Tracks offsets confirmed by the Connect worker via commitRecord().
+    private final ConcurrentHashMap<Map<String, Object>, Map<String, Object>> committedOffsets =
+        new ConcurrentHashMap<>();
 
     @Override
     public String version() {
@@ -45,6 +59,7 @@ public class HermesSourceTask extends SourceTask {
         HermesSourceConfig config = new HermesSourceConfig(props);
         hermesTopic = config.getSourceTopic();
         confluentTopic = config.getDestinationTopic();
+        pollTimeout = Duration.ofMillis(config.getPollTimeoutMs());
 
         String bootstrap1 = config.getCluster1BootstrapOverride().isEmpty()
             ? HermesBootstrapBuilder.buildSourceCluster1Bootstrap(config.getInstanceName())
@@ -68,18 +83,33 @@ public class HermesSourceTask extends SourceTask {
     @Override
     public List<SourceRecord> poll() {
         List<SourceRecord> results = new ArrayList<>();
-        drainConsumer(consumer1, CLUSTER_1, results);
-        drainConsumer(consumer2, CLUSTER_2, results);
+        int c1Count = drainConsumer(consumer1, CLUSTER_1, results, pollTimeout);
+        Duration c2Timeout = c1Count > 0 ? Duration.ZERO : pollTimeout;
+        drainConsumer(consumer2, CLUSTER_2, results, c2Timeout);
         return results.isEmpty() ? null : results;
     }
 
     @Override
     public void stop() {
         log.info("HermesSourceTask stopping");
+        stopping = true;
+        // Wakeup unblocks any in-progress consumer.poll() before close() is called.
+        if (consumer1 != null) consumer1.wakeup();
+        if (consumer2 != null) consumer2.wakeup();
         closeConsumer(consumer1, CLUSTER_1);
         consumer1 = null;
         closeConsumer(consumer2, CLUSTER_2);
         consumer2 = null;
+    }
+
+    @Override
+    public void commit() throws InterruptedException {
+        log.debug("HermesSourceTask commit() — {} offset(s) confirmed by worker", committedOffsets.size());
+    }
+
+    @Override
+    public void commitRecord(SourceRecord record, RecordMetadata metadata) {
+        committedOffsets.put((Map<String, Object>) record.sourcePartition(), (Map<String, Object>) record.sourceOffset());
     }
 
     // ---- Subscription & offset restore ----
@@ -93,26 +123,62 @@ public class HermesSourceTask extends SourceTask {
                     Map<String, Object> stored = context.offsetStorageReader().offset(partKey);
                     if (stored != null && stored.containsKey("offset")) {
                         long offset = ((Number) stored.get("offset")).longValue();
-                        consumer.seek(tp, offset);
-                        log.debug("Restored offset {} for cluster={} partition={}", offset, clusterId, tp);
+                        try {
+                            consumer.seek(tp, offset);
+                            log.debug("Restored offset {} for cluster={} partition={}", offset, clusterId, tp);
+                        } catch (Exception e) {
+                            // Stored offset may have been evicted by log retention; fall back to
+                            // auto.offset.reset (earliest). Records between the lost offset and the
+                            // new start position will be replayed.
+                            log.warn("Stored offset {} for cluster={} partition={} is out of range or invalid; "
+                                + "falling back to auto.offset.reset. Cause: {}", offset, clusterId, tp, e.getMessage());
+                        }
                     }
                 }
             }
 
             @Override
             public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-                // No-op: Connect manages offset commits via commitRecord / offset storage.
+                log.warn("Partitions revoked for cluster={}: {}. In-flight unconfirmed offsets may be replayed "
+                    + "after reassignment.", clusterId, partitions);
             }
         });
     }
 
     // ---- Record draining & conversion ----
 
-    private void drainConsumer(KafkaConsumer<byte[], byte[]> consumer, String clusterId, List<SourceRecord> out) {
-        ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(500));
+    private int drainConsumer(KafkaConsumer<byte[], byte[]> consumer, String clusterId, List<SourceRecord> out, Duration timeout) {
+        ConsumerRecords<byte[], byte[]> records;
+        try {
+            records = consumer.poll(timeout);
+        } catch (WakeupException e) {
+            // Wakeup is expected when stop() is called; also treat spurious wakeups as non-fatal.
+            if (!stopping) {
+                log.debug("Spurious WakeupException for cluster={}, ignoring", clusterId);
+            }
+            return 0;
+        } catch (InterruptException e) {
+            // Kafka's wrapper for InterruptedException — restore the interrupt flag and bail.
+            Thread.currentThread().interrupt();
+            return 0;
+        } catch (RetriableException e) {
+            log.warn("Transient error polling cluster={}: {} — will retry on next poll()", clusterId, e.getMessage());
+            return 0;
+        } catch (KafkaException e) {
+            // Non-retriable: authentication failure, protocol error, etc. — fatal for the task.
+            throw new ConnectException("Unrecoverable error polling cluster=" + clusterId, e);
+        }
+
+        if (!records.isEmpty() && !firstRecordLogged) {
+            firstRecordLogged = true;
+            log.info("HermesSourceTask first record received from cluster={}", clusterId);
+        }
+        log.debug("HermesSourceTask polled {} record(s) from cluster={}", records.count(), clusterId);
+
         for (ConsumerRecord<byte[], byte[]> r : records) {
             out.add(toSourceRecord(r, clusterId));
         }
+        return records.count();
     }
 
     private SourceRecord toSourceRecord(ConsumerRecord<byte[], byte[]> r, String clusterId) {
@@ -171,7 +237,7 @@ public class HermesSourceTask extends SourceTask {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         props.put(ConsumerConfig.GROUP_ID_CONFIG, resolveGroupId(config));
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, config.getMaxPollRecords());
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, config.getAutoOffsetReset());
         // Connect manages offsets via its own offset store; the consumer must not auto-commit.
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
@@ -224,5 +290,10 @@ public class HermesSourceTask extends SourceTask {
 
     void setDestinationTopic(String topic) {
         this.confluentTopic = topic;
+    }
+
+    // Package-private — for tests only.
+    Map<Map<String, Object>, Map<String, Object>> getCommittedOffsets() {
+        return committedOffsets;
     }
 }

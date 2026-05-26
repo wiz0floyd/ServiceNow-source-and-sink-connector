@@ -21,8 +21,7 @@
     </licenses>
 
     <properties>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kafka.version>3.7.0</kafka.version>
         <junit.version>5.10.2</junit.version>
@@ -89,6 +88,67 @@
                 <version>3.2.5</version>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.2.5</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-check</id>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.60</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                            <excludes>
+                                <exclude>com/servicenow/kafka/connect/hermes/Version.class</exclude>
+                                <exclude>com/servicenow/kafka/connect/hermes/HermesSinkTaskMetrics.class</exclude>
+                                <exclude>com/servicenow/kafka/connect/hermes/HermesSinkTaskMetricsMBean.class</exclude>
+                                <exclude>com/servicenow/kafka/connect/hermes/HermesSourceTaskMetrics.class</exclude>
+                                <exclude>com/servicenow/kafka/connect/hermes/HermesSourceTaskMetricsMBean.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!--
                 Confluent Kafka Connect Maven Plugin
                 Produces a compliant Confluent Hub / Confluent Cloud component archive:
@@ -131,6 +191,9 @@
                             <ownerName>ServiceNow</ownerName>
                             <ownerUrl>https://www.servicenow.com</ownerUrl>
 
+                            <supportSummary>Enterprise support provided by ServiceNow. File issues via the project repository.</supportSummary>
+                            <supportUrl>https://github.com/servicenow/hermes-kafka-connector/issues</supportUrl>
+
                             <componentTypes>
                                 <componentType>sink</componentType>
                                 <componentType>source</componentType>
@@ -147,6 +210,7 @@
                             <requirements>
                                 <requirement>ServiceNow instance with Hermes Messaging Service activated</requirement>
                                 <requirement>mTLS certificate from Instance PKI Certificate Generator</requirement>
+                                <requirement>Confluent Platform 7.6.x or compatible Kafka Connect runtime (Kafka Connect API 3.6+)</requirement>
                             </requirements>
 
                             <confluentControlCenterIntegration>true</confluentControlCenterIntegration>

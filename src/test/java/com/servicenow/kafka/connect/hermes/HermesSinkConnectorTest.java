@@ -102,6 +102,24 @@ class HermesSinkConnectorTest {
     }
 
     @Test
+    void startThrowsConnectExceptionAndRestoresInterruptFlagOnInterruption() throws Exception {
+        when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+        when(mockListTopicsResult.names()).thenReturn(mockTopicsFuture);
+        when(mockTopicsFuture.get(anyLong(), any(TimeUnit.class)))
+            .thenThrow(new InterruptedException("simulated interrupt"));
+
+        try {
+            assertThrows(ConnectException.class,
+                () -> connector.start(validProps("snc.myinstance.sn_streamconnect.any")));
+            assertTrue(Thread.currentThread().isInterrupted(),
+                "start() must restore the interrupt flag after catching InterruptedException");
+        } finally {
+            // Clear the interrupt flag so it does not bleed into subsequent tests.
+            Thread.interrupted();
+        }
+    }
+
+    @Test
     void stopDoesNotThrow() throws Exception {
         String targetTopic = "snc.myinstance.sn_streamconnect.test-topic";
         setupAdminClientWithTopics(Set.of(targetTopic));

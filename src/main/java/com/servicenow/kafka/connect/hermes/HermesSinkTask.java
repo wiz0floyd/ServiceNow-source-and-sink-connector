@@ -6,6 +6,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -15,7 +16,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class HermesSinkTask extends SinkTask {
 
@@ -23,6 +24,9 @@ public class HermesSinkTask extends SinkTask {
 
     private KafkaProducer<byte[], byte[]> producer;
     private String hermesTopic;
+    private ErrantRecordReporter errantRecordReporter;
+    private final AtomicReference<Throwable> sendException = new AtomicReference<>();
+    private volatile boolean firstRecordLogged = false;
 
     @Override
     public String version() {
@@ -36,32 +40,58 @@ public class HermesSinkTask extends SinkTask {
         String bootstrap = HermesBootstrapBuilder.buildSinkBootstrap(config.getInstanceName());
         log.info("HermesSinkTask starting — bootstrap: {}, topic: {}", bootstrap, hermesTopic);
         producer = createProducer(buildProducerProperties(config, bootstrap));
+        errantRecordReporter = context.errantRecordReporter();
         log.info("HermesSinkTask producer initialized");
     }
 
     @Override
     public void put(Collection<SinkRecord> records) {
-        if (records.isEmpty()) {
-            return;
+        if (records.isEmpty()) return;
+
+        // Fail fast if a previous async send failed without a reporter to absorb it
+        Throwable prior = sendException.get();
+        if (prior != null) {
+            sendException.set(null);
+            throw new ConnectException("Prior async send failed: " + prior.getMessage(), prior);
         }
+
+        log.debug("HermesSinkTask put() batch: {} record(s)", records.size());
+
         for (SinkRecord record : records) {
             ProducerRecord<byte[], byte[]> pr = toProducerRecord(record);
-            try {
-                producer.send(pr).get();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new ConnectException("Interrupted while sending to Hermes topic '" + hermesTopic + "'", e);
-            } catch (ExecutionException e) {
-                log.error("Failed to send record to Hermes topic '{}': {}", hermesTopic, e.getCause().getMessage(), e.getCause());
-                throw new ConnectException("Failed to deliver record to Hermes topic '" + hermesTopic + "'", e.getCause());
-            }
+            producer.send(pr, (metadata, exception) -> {
+                if (exception == null) return;
+                if (errantRecordReporter != null) {
+                    errantRecordReporter.report(record, exception);
+                } else {
+                    // Store for flush() to surface; first error wins
+                    sendException.compareAndSet(null, exception);
+                }
+            });
+        }
+
+        // Log first record milestone once
+        if (!firstRecordLogged) {
+            firstRecordLogged = true;
+            log.info("HermesSinkTask: first record batch sent to Hermes topic '{}'", hermesTopic);
         }
     }
 
     @Override
     public void flush(Map<org.apache.kafka.common.TopicPartition, org.apache.kafka.clients.consumer.OffsetAndMetadata> currentOffsets) {
-        // Ensure all in-flight sends complete before Connect commits offsets
         producer.flush();
+        Throwable t = sendException.getAndSet(null);
+        if (t != null) {
+            throw new ConnectException("Failed to deliver record(s) to Hermes topic '" + hermesTopic + "'", t);
+        }
+        log.debug("HermesSinkTask flush() complete for {} partition(s)", currentOffsets.size());
+    }
+
+    @Override
+    public Map<org.apache.kafka.common.TopicPartition, org.apache.kafka.clients.consumer.OffsetAndMetadata> preCommit(
+            Map<org.apache.kafka.common.TopicPartition, org.apache.kafka.clients.consumer.OffsetAndMetadata> currentOffsets) {
+        log.debug("HermesSinkTask committing offsets for {} partition(s)", currentOffsets.size());
+        return super.preCommit(currentOffsets);
     }
 
     @Override
@@ -108,6 +138,10 @@ public class HermesSinkTask extends SinkTask {
         props.put(ProducerConfig.ACKS_CONFIG, config.getProducerAcks());
         props.put(ProducerConfig.RETRIES_CONFIG, config.getProducerRetries());
         props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        // TODO: wire batching configs once HermesConnectorConfig adds these methods
+        props.put(ProducerConfig.LINGER_MS_CONFIG, config.getProducerLingerMs());
+        props.put(ProducerConfig.BATCH_SIZE_CONFIG, config.getProducerBatchSize());
+        props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, config.getProducerCompressionType());
         // Max in-flight requests per connection: 5 is the safe limit for idempotent producers
         props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
         props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120000);
@@ -136,5 +170,10 @@ public class HermesSinkTask extends SinkTask {
 
     void setHermesTopic(String topic) {
         this.hermesTopic = topic;
+    }
+
+    // Package-private setter for testing
+    void setErrantRecordReporter(ErrantRecordReporter reporter) {
+        this.errantRecordReporter = reporter;
     }
 }
