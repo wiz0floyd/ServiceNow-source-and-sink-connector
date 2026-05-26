@@ -156,4 +156,25 @@ class HermesConnectorConfigTest {
         props.put(HermesConnectorConfig.HERMES_PRODUCER_ACKS_CONFIG, "-1");
         assertThrows(ConfigException.class, () -> new HermesConnectorConfig(props));
     }
+
+    @Test
+    void defaultCertExpiryWarnDaysIsThirty() {
+        HermesConnectorConfig config = new HermesConnectorConfig(validProps());
+        assertEquals(30, config.getCertExpiryWarnDays());
+    }
+
+    @Test
+    void customCertExpiryWarnDaysIsRespected() {
+        Map<String, String> props = validProps();
+        props.put(HermesConnectorConfig.HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG, "7");
+        HermesConnectorConfig config = new HermesConnectorConfig(props);
+        assertEquals(7, config.getCertExpiryWarnDays());
+    }
+
+    @Test
+    void certExpiryWarnDaysValidatorRejectsZero() {
+        Map<String, String> props = validProps();
+        props.put(HermesConnectorConfig.HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG, "0");
+        assertThrows(ConfigException.class, () -> new HermesConnectorConfig(props));
+    }
 }

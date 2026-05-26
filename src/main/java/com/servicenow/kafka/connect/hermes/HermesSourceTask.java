@@ -259,6 +259,7 @@ public class HermesSourceTask extends SourceTask {
             props.put(InMemorySslEngineFactory.KEYSTORE_PASSWORD_CONFIG, config.getKeystorePassword());
             props.put(InMemorySslEngineFactory.TRUSTSTORE_B64_CONFIG, config.getTruststoreB64());
             props.put(InMemorySslEngineFactory.TRUSTSTORE_PASSWORD_CONFIG, config.getTruststorePassword());
+            props.put(InMemorySslEngineFactory.CERT_EXPIRY_WARN_DAYS_CONFIG, config.getCertExpiryWarnDays());
         }
         // else: PLAINTEXT — for local/Docker E2E testing only
 

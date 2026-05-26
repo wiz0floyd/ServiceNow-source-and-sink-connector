@@ -28,13 +28,15 @@ public class InMemorySslEngineFactory implements SslEngineFactory {
     public static final String KEYSTORE_PASSWORD_CONFIG = "hermes.ssl.keystore.password";
     public static final String TRUSTSTORE_B64_CONFIG = "hermes.ssl.truststore.b64";
     public static final String TRUSTSTORE_PASSWORD_CONFIG = "hermes.ssl.truststore.password";
+    public static final String CERT_EXPIRY_WARN_DAYS_CONFIG = "hermes.ssl.cert.expiry.warn.days";
 
     private static final Set<String> RECONFIGURABLE_CONFIGS = Collections.unmodifiableSet(
         new HashSet<>(Arrays.asList(
             KEYSTORE_B64_CONFIG,
             KEYSTORE_PASSWORD_CONFIG,
             TRUSTSTORE_B64_CONFIG,
-            TRUSTSTORE_PASSWORD_CONFIG
+            TRUSTSTORE_PASSWORD_CONFIG,
+            CERT_EXPIRY_WARN_DAYS_CONFIG
         ))
     );
 
@@ -59,7 +61,21 @@ public class InMemorySslEngineFactory implements SslEngineFactory {
             KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             kmf.init(keystore, keystorePassword.toCharArray());
 
-            // Check for upcoming cert expiration (warn if <= 30 days remain)
+            // Check for upcoming cert expiration; threshold is configurable via CERT_EXPIRY_WARN_DAYS_CONFIG
+            Object rawWarnDays = configs.get(CERT_EXPIRY_WARN_DAYS_CONFIG);
+            int warnDays;
+            if (rawWarnDays == null) {
+                warnDays = 30;
+            } else if (rawWarnDays instanceof Number) {
+                warnDays = ((Number) rawWarnDays).intValue();
+            } else {
+                try {
+                    warnDays = Integer.parseInt(rawWarnDays.toString());
+                } catch (NumberFormatException e) {
+                    throw new ConfigException(CERT_EXPIRY_WARN_DAYS_CONFIG, rawWarnDays.toString(),
+                        "Value must be a positive integer.");
+                }
+            }
             Enumeration<String> aliases = keystore.aliases();
             while (aliases.hasMoreElements()) {
                 java.security.cert.Certificate cert = keystore.getCertificate(aliases.nextElement());
@@ -67,7 +83,7 @@ public class InMemorySslEngineFactory implements SslEngineFactory {
                     java.security.cert.X509Certificate x509 = (java.security.cert.X509Certificate) cert;
                     long daysLeft = java.time.temporal.ChronoUnit.DAYS.between(
                             java.time.Instant.now(), x509.getNotAfter().toInstant());
-                    if (daysLeft <= 30) {
+                    if (daysLeft <= warnDays) {
                         log.warn("InMemorySslEngineFactory: mTLS certificate expires in {} day(s) on {}. "
                                 + "Rotate the certificate via the Hermes Instance PKI Certificate Generator.",
                                 daysLeft, x509.getNotAfter());

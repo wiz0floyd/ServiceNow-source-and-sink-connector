@@ -217,4 +217,25 @@ class HermesSourceConfigTest {
             "CSV should contain exactly 3 commas for 4 properties");
         assertFalse(csv.contains(" "), "CSV must not contain spaces (CLI flag is comma-only)");
     }
+
+    @Test
+    void defaultCertExpiryWarnDaysIsThirty() {
+        HermesSourceConfig config = new HermesSourceConfig(validProps());
+        assertEquals(30, config.getCertExpiryWarnDays());
+    }
+
+    @Test
+    void customCertExpiryWarnDaysIsRespected() {
+        Map<String, String> props = validProps();
+        props.put(HermesSourceConfig.HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG, "7");
+        HermesSourceConfig config = new HermesSourceConfig(props);
+        assertEquals(7, config.getCertExpiryWarnDays());
+    }
+
+    @Test
+    void certExpiryWarnDaysValidatorRejectsZero() {
+        Map<String, String> props = validProps();
+        props.put(HermesSourceConfig.HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG, "0");
+        assertThrows(ConfigException.class, () -> new HermesSourceConfig(props));
+    }
 }
