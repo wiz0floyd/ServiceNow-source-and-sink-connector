@@ -4,9 +4,12 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.InvalidTopicException;
+import org.apache.kafka.common.errors.NotLeaderOrFollowerException;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.header.ConnectHeaders;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,8 +21,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,7 +31,7 @@ class HermesSinkTaskTest {
 
     @Mock KafkaProducer<byte[], byte[]> mockProducer;
     @Mock SinkTaskContext mockContext;
-    @Mock Future<RecordMetadata> mockFuture;
+    @Mock ErrantRecordReporter mockErrantRecordReporter;
 
     @Captor ArgumentCaptor<ProducerRecord<byte[], byte[]>> recordCaptor;
 
@@ -45,6 +46,24 @@ class HermesSinkTaskTest {
         task.setHermesTopic(HERMES_TOPIC);
     }
 
+    // --- Helper: stub producer.send(record, callback) to fire success immediately ---
+    private void stubSuccessfulSend() {
+        when(mockProducer.send(any(), any())).thenAnswer(invocation -> {
+            org.apache.kafka.clients.producer.Callback cb = invocation.getArgument(1);
+            cb.onCompletion(mock(RecordMetadata.class), null);
+            return null;
+        });
+    }
+
+    // --- Helper: stub producer.send(record, callback) to fire a failure immediately ---
+    private void stubFailingSend(Exception exception) {
+        when(mockProducer.send(any(), any())).thenAnswer(invocation -> {
+            org.apache.kafka.clients.producer.Callback cb = invocation.getArgument(1);
+            cb.onCompletion(null, exception);
+            return null;
+        });
+    }
+
     @Test
     void putWithEmptyCollectionDoesNotCallSend() {
         task.put(Collections.emptyList());
@@ -52,9 +71,8 @@ class HermesSinkTaskTest {
     }
 
     @Test
-    void putSendsOneRecordPerSinkRecord() throws Exception {
-        when(mockProducer.send(any())).thenReturn(mockFuture);
-        when(mockFuture.get()).thenReturn(null);
+    void putSendsOneRecordPerSinkRecord() {
+        stubSuccessfulSend();
 
         List<SinkRecord> records = Arrays.asList(
             makeSinkRecord("key1".getBytes(), "value1".getBytes()),
@@ -64,37 +82,34 @@ class HermesSinkTaskTest {
 
         task.put(records);
 
-        verify(mockProducer, times(3)).send(any(ProducerRecord.class));
+        verify(mockProducer, times(3)).send(any(ProducerRecord.class), any());
     }
 
     @Test
-    void putSendsToCorrectHermesTopic() throws Exception {
-        when(mockProducer.send(any())).thenReturn(mockFuture);
-        when(mockFuture.get()).thenReturn(null);
+    void putSendsToCorrectHermesTopic() {
+        stubSuccessfulSend();
         task.put(List.of(makeSinkRecord("k".getBytes(), "v".getBytes())));
 
-        verify(mockProducer).send(recordCaptor.capture());
+        verify(mockProducer).send(recordCaptor.capture(), any());
         assertEquals(HERMES_TOPIC, recordCaptor.getValue().topic());
     }
 
     @Test
-    void putPreservesKeyAndValue() throws Exception {
-        when(mockProducer.send(any())).thenReturn(mockFuture);
-        when(mockFuture.get()).thenReturn(null);
+    void putPreservesKeyAndValue() {
+        stubSuccessfulSend();
         byte[] key = "my-key".getBytes();
         byte[] value = "my-value".getBytes();
 
         task.put(List.of(makeSinkRecord(key, value)));
 
-        verify(mockProducer).send(recordCaptor.capture());
+        verify(mockProducer).send(recordCaptor.capture(), any());
         assertArrayEquals(key, recordCaptor.getValue().key());
         assertArrayEquals(value, recordCaptor.getValue().value());
     }
 
     @Test
-    void putPreservesHeaders() throws Exception {
-        when(mockProducer.send(any())).thenReturn(mockFuture);
-        when(mockFuture.get()).thenReturn(null);
+    void putPreservesHeaders() {
+        stubSuccessfulSend();
         ConnectHeaders headers = new ConnectHeaders();
         headers.addBytes("ce-specversion", "1.0".getBytes());
         headers.addBytes("ce-type", "com.sn.incident.created".getBytes());
@@ -106,7 +121,7 @@ class HermesSinkTaskTest {
 
         task.put(List.of(record));
 
-        verify(mockProducer).send(recordCaptor.capture());
+        verify(mockProducer).send(recordCaptor.capture(), any());
         org.apache.kafka.common.header.Headers sentHeaders = recordCaptor.getValue().headers();
         assertNotNull(sentHeaders.lastHeader("ce-specversion"));
         assertArrayEquals("1.0".getBytes(), sentHeaders.lastHeader("ce-specversion").value());
@@ -114,36 +129,51 @@ class HermesSinkTaskTest {
     }
 
     @Test
-    void putWithNullKeyAndValueDoesNotThrow() throws Exception {
-        when(mockProducer.send(any())).thenReturn(mockFuture);
-        when(mockFuture.get()).thenReturn(null);
+    void putWithNullKeyAndValueDoesNotThrow() {
+        stubSuccessfulSend();
         task.put(List.of(makeSinkRecord(null, null)));
-        verify(mockProducer, times(1)).send(any());
+        verify(mockProducer, times(1)).send(any(), any());
     }
 
     @Test
-    void putPartitionIsNullForHashByKeyBehavior() throws Exception {
-        when(mockProducer.send(any())).thenReturn(mockFuture);
-        when(mockFuture.get()).thenReturn(null);
+    void putPartitionIsNullForHashByKeyBehavior() {
+        stubSuccessfulSend();
         task.put(List.of(makeSinkRecord("k".getBytes(), "v".getBytes())));
-        verify(mockProducer).send(recordCaptor.capture());
+        verify(mockProducer).send(recordCaptor.capture(), any());
         assertNull(recordCaptor.getValue().partition(),
             "Partition must be null to let the partitioner do hash-by-key");
     }
 
     @Test
-    void putThrowsConnectExceptionOnSendFailure() throws Exception {
-        when(mockProducer.send(any())).thenReturn(mockFuture);
-        when(mockFuture.get()).thenThrow(new ExecutionException("broker error", new RuntimeException("send failed")));
+    void putDoesNotThrowOnSendFailure_exceptionSurfacesInFlush() {
+        // Without an errant reporter, permanent send failures are stored and surface in flush()
+        stubFailingSend(new RuntimeException("send failed"));
 
-        assertThrows(ConnectException.class,
-            () -> task.put(List.of(makeSinkRecord("k".getBytes(), "v".getBytes()))));
+        // put() must not throw
+        assertDoesNotThrow(() -> task.put(List.of(makeSinkRecord("k".getBytes(), "v".getBytes()))));
+
+        // flush() surfaces the stored exception
+        assertThrows(ConnectException.class, () -> task.flush(Map.of()));
     }
 
     @Test
     void flushCallsProducerFlush() {
         task.flush(Collections.emptyMap());
         verify(mockProducer).flush();
+    }
+
+    @Test
+    void flushThrowsConnectExceptionWhenAsyncSendFailed() {
+        // Cause the callback to fire with a permanent error; no errant reporter configured
+        stubFailingSend(new RuntimeException("broker rejected"));
+
+        // put() stores the exception without throwing
+        task.put(List.of(makeSinkRecord("k".getBytes(), "v".getBytes())));
+
+        // flush() must throw ConnectException wrapping the stored exception
+        ConnectException ex = assertThrows(ConnectException.class, () -> task.flush(Map.of()));
+        assertTrue(ex.getMessage().contains(HERMES_TOPIC),
+            "Exception message should reference the Hermes topic");
     }
 
     @Test
@@ -162,6 +192,55 @@ class HermesSinkTaskTest {
     @Test
     void versionIsNonNull() {
         assertNotNull(task.version());
+    }
+
+    @Test
+    void putSurfacesTransientKafkaErrorInFlush() {
+        // NotLeaderOrFollowerException is a RetriableException in the Kafka client, but
+        // in the async path the callback receives it directly; it is stored and surfaces in flush()
+        stubFailingSend(new NotLeaderOrFollowerException("leader election"));
+
+        assertDoesNotThrow(() -> task.put(List.of(makeSinkRecord("k".getBytes(), "v".getBytes()))));
+        assertThrows(ConnectException.class, () -> task.flush(Map.of()));
+    }
+
+    @Test
+    void putReportsToErrantRecordReporterOnPermanentFailure() {
+        task.setErrantRecordReporter(mockErrantRecordReporter);
+
+        InvalidTopicException cause = new InvalidTopicException("bad-topic");
+        stubFailingSend(cause);
+
+        SinkRecord record = makeSinkRecord("k".getBytes(), "v".getBytes());
+        // Must not throw — the reporter absorbs the error and processing continues
+        assertDoesNotThrow(() -> task.put(List.of(record)));
+
+        verify(mockErrantRecordReporter).report(record, cause);
+    }
+
+    @Test
+    void putDoesNotThrowWhenErrantReporterAbsorbsError() {
+        // With a reporter wired, the callback routes to the reporter; sendException stays null
+        task.setErrantRecordReporter(mockErrantRecordReporter);
+        stubFailingSend(new RuntimeException("absorbed error"));
+
+        assertDoesNotThrow(() -> task.put(List.of(makeSinkRecord("k".getBytes(), "v".getBytes()))));
+        // flush() should also not throw — the exception was absorbed by the reporter
+        assertDoesNotThrow(() -> task.flush(Map.of()));
+    }
+
+    @Test
+    void preCommitDelegatesToSuper() {
+        // preCommit() just logs and delegates — verify it returns the input offsets unchanged
+        Map<TopicPartition, org.apache.kafka.clients.consumer.OffsetAndMetadata> offsets =
+            Map.of(new TopicPartition(HERMES_TOPIC, 0),
+                   new org.apache.kafka.clients.consumer.OffsetAndMetadata(42L));
+        Map<TopicPartition, org.apache.kafka.clients.consumer.OffsetAndMetadata> result =
+            task.preCommit(offsets);
+        // SinkTask.preCommit() default delegates to currentOffsets from context; since the
+        // task is not fully started we just verify no exception is thrown and call completes.
+        // (The return value is context-managed by the Connect runtime, not the task itself.)
+        assertNotNull(result);
     }
 
     // ---- Helpers ----

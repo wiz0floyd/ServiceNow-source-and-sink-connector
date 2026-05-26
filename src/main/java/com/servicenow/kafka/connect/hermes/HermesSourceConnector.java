@@ -3,6 +3,7 @@ package com.servicenow.kafka.connect.hermes;
 import com.servicenow.kafka.connect.hermes.ssl.InMemorySslEngineFactory;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -35,6 +36,16 @@ public class HermesSourceConnector extends SourceConnector {
     public void start(Map<String, String> props) {
         log.info("Starting HermesSourceConnector");
         HermesSourceConfig config = new HermesSourceConfig(props);
+        if (!config.isSslEnabled()) {
+            String bootstrap1 = config.getCluster1BootstrapOverride();
+            String bootstrap2 = config.getCluster2BootstrapOverride();
+            // If overrides are empty, the bootstrap is derived from instance name (production address)
+            if (bootstrap1.isEmpty() || bootstrap2.isEmpty()) {
+                log.warn("HermesSourceConnector: hermes.ssl.enabled=false but no bootstrap overrides are configured. "
+                    + "SSL is DISABLED — this mode is for local/Docker testing ONLY. "
+                    + "Never disable SSL when connecting to a live Hermes instance.");
+            }
+        }
         validateClustersReachable(config);
         this.props = Collections.unmodifiableMap(new HashMap<>(props));
         log.info("HermesSourceConnector started — Hermes instance: {}, source topic: {}, destination: {}",
@@ -51,6 +62,11 @@ public class HermesSourceConnector extends SourceConnector {
         // Dual-cluster state lives inside a single task (one embedded consumer per Hermes
         // peer cluster, with independent offset tracking). To scale horizontally, deploy
         // additional connector instances rather than increasing tasks.max.
+        if (maxTasks > 1) {
+            log.warn("HermesSourceConnector: tasks.max={} requested but this connector supports only 1 task "
+                + "per instance due to its dual-cluster embedded consumer architecture. "
+                + "Deploy additional connector instances for higher throughput.", maxTasks);
+        }
         List<Map<String, String>> configs = new ArrayList<>(1);
         configs.add(props);
         return configs;
@@ -59,6 +75,13 @@ public class HermesSourceConnector extends SourceConnector {
     @Override
     public void stop() {
         log.info("HermesSourceConnector stopped");
+    }
+
+    @Override
+    public Config validate(Map<String, String> connectorConfigs) {
+        Config result = super.validate(connectorConfigs);
+        HermesSourceConfig.addSslValidationErrors(connectorConfigs, result);
+        return result;
     }
 
     @Override
@@ -85,7 +108,7 @@ public class HermesSourceConnector extends SourceConnector {
         log.info("Validating Hermes topic '{}' exists on source cluster {} at {}", topic, clusterLabel, bootstrap);
         Map<String, Object> adminProps = buildAdminProperties(config, bootstrap);
         try (AdminClient admin = createAdminClient(adminProps)) {
-            Set<String> topics = admin.listTopics().names().get(30, TimeUnit.SECONDS);
+            Set<String> topics = admin.listTopics().names().get(10, TimeUnit.SECONDS);
             if (!topics.contains(topic)) {
                 throw new ConnectException(
                     "Hermes topic '" + topic + "' does not exist on source cluster " + clusterLabel + ". " +
@@ -111,8 +134,8 @@ public class HermesSourceConnector extends SourceConnector {
     static Map<String, Object> buildAdminProperties(HermesSourceConfig config, String bootstrap) {
         Map<String, Object> props = new HashMap<>();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
-        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "20000");
-        props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "25000");
+        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "8000");
+        props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "10000");
         addSslProperties(props, config);
         return props;
     }

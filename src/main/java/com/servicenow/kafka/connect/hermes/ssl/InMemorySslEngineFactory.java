@@ -59,6 +59,22 @@ public class InMemorySslEngineFactory implements SslEngineFactory {
             KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             kmf.init(keystore, keystorePassword.toCharArray());
 
+            // Check for upcoming cert expiration (warn if <= 30 days remain)
+            Enumeration<String> aliases = keystore.aliases();
+            while (aliases.hasMoreElements()) {
+                java.security.cert.Certificate cert = keystore.getCertificate(aliases.nextElement());
+                if (cert instanceof java.security.cert.X509Certificate) {
+                    java.security.cert.X509Certificate x509 = (java.security.cert.X509Certificate) cert;
+                    long daysLeft = java.time.temporal.ChronoUnit.DAYS.between(
+                            java.time.Instant.now(), x509.getNotAfter().toInstant());
+                    if (daysLeft <= 30) {
+                        log.warn("InMemorySslEngineFactory: mTLS certificate expires in {} day(s) on {}. "
+                                + "Rotate the certificate via the Hermes Instance PKI Certificate Generator.",
+                                daysLeft, x509.getNotAfter());
+                    }
+                }
+            }
+
             TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             tmf.init(truststore);
 
@@ -77,6 +93,7 @@ public class InMemorySslEngineFactory implements SslEngineFactory {
     public SSLEngine createClientSslEngine(String peerHost, int peerPort, String endpointIdentification) {
         SSLEngine engine = sslContext.createSSLEngine(peerHost, peerPort);
         engine.setUseClientMode(true);
+        engine.setEnabledProtocols(new String[]{"TLSv1.3", "TLSv1.2"});
 
         SSLParameters params = engine.getSSLParameters();
         // Disable hostname verification: Hermes uses instance-signed certs (not a public CA),

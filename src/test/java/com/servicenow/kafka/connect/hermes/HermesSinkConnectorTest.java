@@ -59,13 +59,21 @@ class HermesSinkConnectorTest {
     }
 
     @Test
-    void taskConfigsAreIdentical() throws Exception {
+    void taskConfigsHaveSequentialTaskIds() throws Exception {
         String targetTopic = "snc.myinstance.sn_streamconnect.test-topic";
         setupAdminClientWithTopics(Set.of(targetTopic));
         connector.start(validProps(targetTopic));
 
-        List<Map<String, String>> configs = connector.taskConfigs(2);
-        assertEquals(configs.get(0), configs.get(1));
+        List<Map<String, String>> configs = connector.taskConfigs(3);
+        assertEquals(3, configs.size());
+        // Each task gets a unique task.id so JMX ObjectNames don't collide
+        for (int i = 0; i < configs.size(); i++) {
+            assertEquals(String.valueOf(i), configs.get(i).get("task.id"));
+        }
+        // Connector config propagated to every task
+        for (Map<String, String> cfg : configs) {
+            assertEquals(targetTopic, cfg.get(HermesConnectorConfig.HERMES_TOPIC_CONFIG));
+        }
     }
 
     @Test
@@ -99,6 +107,24 @@ class HermesSinkConnectorTest {
 
         assertTrue(ex.getMessage().contains("connect") || ex.getMessage().contains("verify"),
             "Exception message should indicate connection failure: " + ex.getMessage());
+    }
+
+    @Test
+    void startThrowsConnectExceptionAndRestoresInterruptFlagOnInterruption() throws Exception {
+        when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+        when(mockListTopicsResult.names()).thenReturn(mockTopicsFuture);
+        when(mockTopicsFuture.get(anyLong(), any(TimeUnit.class)))
+            .thenThrow(new InterruptedException("simulated interrupt"));
+
+        try {
+            assertThrows(ConnectException.class,
+                () -> connector.start(validProps("snc.myinstance.sn_streamconnect.any")));
+            assertTrue(Thread.currentThread().isInterrupted(),
+                "start() must restore the interrupt flag after catching InterruptedException");
+        } finally {
+            // Clear the interrupt flag so it does not bleed into subsequent tests.
+            Thread.interrupted();
+        }
     }
 
     @Test

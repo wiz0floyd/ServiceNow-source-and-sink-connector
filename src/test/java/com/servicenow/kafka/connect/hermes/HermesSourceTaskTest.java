@@ -13,6 +13,7 @@ import org.apache.kafka.connect.storage.OffsetStorageReader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -226,6 +227,37 @@ class HermesSourceTaskTest {
         HermesSourceConfig config = new HermesSourceConfig(minimalConfigProps());
         Map<String, Object> props = HermesSourceTask.buildConsumerProperties(config, "bootstrap:9092");
         assertEquals("snc.myinstance.test-group", props.get("group.id"));
+    }
+
+    @Test
+    void stopCallsWakeupBeforeClose() {
+        task.stop();
+        InOrder order = inOrder(mockConsumer1);
+        order.verify(mockConsumer1).wakeup();
+        order.verify(mockConsumer1).close(any(Duration.class));
+        // Also verify consumer2
+        InOrder order2 = inOrder(mockConsumer2);
+        order2.verify(mockConsumer2).wakeup();
+        order2.verify(mockConsumer2).close(any(Duration.class));
+    }
+
+    @Test
+    void pollReturnsEmptyOnWakeupExceptionWhenStopping() {
+        // WakeupException is caught in drainConsumer regardless of the stopping flag;
+        // the poll() contract is to return null (which Connect interprets as "no records").
+        when(mockConsumer1.poll(any(Duration.class))).thenThrow(new org.apache.kafka.common.errors.WakeupException());
+        when(mockConsumer2.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
+        List<SourceRecord> result = assertDoesNotThrow(() -> task.poll());
+        assertNull(result);
+    }
+
+    @Test
+    void commitRecordTracksConfirmedOffset() throws Exception {
+        Map<String, Object> partition = HermesSourceTask.sourcePartitionKey("1", "test-topic", 0);
+        Map<String, Object> offset = Map.of("offset", 42L);
+        SourceRecord record = new SourceRecord(partition, offset, "dest-topic", null, null, null, null, null);
+        task.commitRecord(record, null);
+        assertEquals(offset, task.getCommittedOffsets().get(partition));
     }
 
     // ---- Helpers ----
