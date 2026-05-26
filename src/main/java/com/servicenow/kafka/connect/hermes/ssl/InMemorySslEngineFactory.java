@@ -35,7 +35,8 @@ public class InMemorySslEngineFactory implements SslEngineFactory {
             KEYSTORE_B64_CONFIG,
             KEYSTORE_PASSWORD_CONFIG,
             TRUSTSTORE_B64_CONFIG,
-            TRUSTSTORE_PASSWORD_CONFIG
+            TRUSTSTORE_PASSWORD_CONFIG,
+            CERT_EXPIRY_WARN_DAYS_CONFIG
         ))
     );
 
@@ -62,9 +63,19 @@ public class InMemorySslEngineFactory implements SslEngineFactory {
 
             // Check for upcoming cert expiration; threshold is configurable via CERT_EXPIRY_WARN_DAYS_CONFIG
             Object rawWarnDays = configs.get(CERT_EXPIRY_WARN_DAYS_CONFIG);
-            int warnDays = rawWarnDays == null ? 30
-                : rawWarnDays instanceof Number ? ((Number) rawWarnDays).intValue()
-                : Integer.parseInt(rawWarnDays.toString());
+            int warnDays;
+            if (rawWarnDays == null) {
+                warnDays = 30;
+            } else if (rawWarnDays instanceof Number) {
+                warnDays = ((Number) rawWarnDays).intValue();
+            } else {
+                try {
+                    warnDays = Integer.parseInt(rawWarnDays.toString());
+                } catch (NumberFormatException e) {
+                    throw new ConfigException(CERT_EXPIRY_WARN_DAYS_CONFIG, rawWarnDays.toString(),
+                        "Value must be a positive integer.");
+                }
+            }
             Enumeration<String> aliases = keystore.aliases();
             while (aliases.hasMoreElements()) {
                 java.security.cert.Certificate cert = keystore.getCertificate(aliases.nextElement());

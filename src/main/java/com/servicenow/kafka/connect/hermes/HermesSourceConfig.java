@@ -29,11 +29,10 @@ public class HermesSourceConfig extends AbstractConfig {
     public static final String HERMES_SOURCE_CLUSTER1_BOOTSTRAP_OVERRIDE_CONFIG = "hermes.source.cluster1.bootstrap.override";
     public static final String HERMES_SOURCE_CLUSTER2_BOOTSTRAP_OVERRIDE_CONFIG = "hermes.source.cluster2.bootstrap.override";
     public static final String HERMES_SSL_ENABLED_CONFIG = "hermes.ssl.enabled";
+    // Must match InMemorySslEngineFactory.CERT_EXPIRY_WARN_DAYS_CONFIG
     public static final String HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG = "hermes.ssl.cert.expiry.warn.days";
     public static final String HERMES_CONSUMER_POLL_TIMEOUT_MS_CONFIG = "hermes.consumer.poll.timeout.ms";
     public static final String HERMES_CONSUMER_AUTO_OFFSET_RESET_CONFIG = "hermes.consumer.auto.offset.reset";
-
-    // ---- ConfigDef ----
 
     public static final ConfigDef CONFIG_DEF = new ConfigDef()
         .define(

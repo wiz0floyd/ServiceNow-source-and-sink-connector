@@ -30,6 +30,7 @@ public class HermesConnectorConfig extends AbstractConfig {
     public static final String HERMES_PRODUCER_COMPRESSION_TYPE_CONFIG = "hermes.producer.compression.type";
     public static final String HERMES_SINK_BOOTSTRAP_OVERRIDE_CONFIG = "hermes.sink.bootstrap.override";
     public static final String HERMES_SSL_ENABLED_CONFIG = "hermes.ssl.enabled";
+    // Must match InMemorySslEngineFactory.CERT_EXPIRY_WARN_DAYS_CONFIG
     public static final String HERMES_SSL_CERT_EXPIRY_WARN_DAYS_CONFIG = "hermes.ssl.cert.expiry.warn.days";
 
     // ---- Group name constants ----
