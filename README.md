@@ -2,6 +2,8 @@
 
 Kafka Connect sink connector that streams data from Confluent Cloud into a ServiceNow instance Hermes Kafka cluster over mutual TLS (mTLS).
 
+> **Disclaimer:** This is personal work by an individual contributor. It is not supported, endorsed, or affiliated with ServiceNow, Inc. or Confluent, Inc. in any official capacity. Use at your own risk.
+
 ## Documentation
 
 | Guide | Description |
